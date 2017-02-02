@@ -11,7 +11,7 @@ RUN \
     libnspr4 libnspr4-0d libnspr4 libnss3 libnss3-1d \
     libexpat1 libfontconfig1
 
-COPY headless_shell.tar.bz2 /tmp/
+ADD https://storage.googleapis.com/docker-chrome-headless/headless_shell.tar.bz2 /tmp/
 
 RUN \
     mkdir -p /headless_shell \
