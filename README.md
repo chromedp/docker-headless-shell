@@ -1,11 +1,11 @@
 # About docker-chrome-headless
 
-This repository contains the sources for the Docker `knqz/chrome-headless`
-container.
+This repository contains the sources for the Docker
+[`knqz/chrome-headless`](https://hub.docker.com/r/knqz/chrome-headless/) container.
 
-It contains the `headless_shell` Chrome app that has a custom user-agent. This
+It contains the `headless_shell` Chrome app with a custom user-agent. This
 image was made to run the unit tests for the Go [`chromedp`](https://github.com/knq/chromedp)
-package. It is as stripped to the smallest possible install for Chrome.
+package. It is a stripped, smallest possible install for Chrome.
 
 ## Running
 
