@@ -3,12 +3,7 @@
 VER=$1
 BUILD=${2:-/media/src/chromium/src/out/Headless}
 
-# to build headless_shell:
-# cd $BUILD
-# git rebase-update
-# gclient sync
-# git checkout <tag>
-# ninja headless_shell chrome_sandbox
+# to build headless_shell see build-chrome.sh
 
 set -e
 
