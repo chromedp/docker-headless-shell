@@ -15,6 +15,6 @@ ls *.bz2|sort -r -V|head -1 > latest.txt
 popd &> /dev/null
 
 set -v
-gsutil -m rsync -r -x .gitignore $SRC/out/ gs://docker-chrome-headless/
+gsutil -m rsync -r -d -x .gitignore $SRC/out/ gs://docker-chrome-headless/
 
 gsutil -m acl -r set public-read gs://docker-chrome-headless/
