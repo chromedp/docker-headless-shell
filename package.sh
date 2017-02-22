@@ -1,7 +1,7 @@
 #!/bin/bash
 
-VER=$1
-BUILD=${2:-/media/src/chromium/src/out/Headless}
+BUILD=${1:-/media/src/chromium/src}
+VER=$2
 
 # to build headless_shell see build-chrome.sh
 
@@ -20,14 +20,16 @@ if [ -z "$VER" ]; then
   exit 1
 fi
 
-TMP=$(mktemp -d -p /tmp headless_shell.XXXXX)
+PROJECT=out/headless_shell-$VER
 
-OUT=$SRC/out/headless_shell-$VER.tar.bz2
+TMP=$(mktemp -d -p /tmp headless_shell-$VER.XXXXX)
+
+OUT=$SRC/$PROJECT.tar.bz2
 
 set -v
 rm -f $OUT
 
-rsync -a $BUILD/{headless_shell,headless_lib.pak,libosmesa.so,natives_blob.bin,snapshot_blob.bin,locales,chrome_sandbox} $TMP
+rsync -a $BUILD/$PROJECT/{headless_shell,headless_lib.pak,libosmesa.so,chrome_sandbox} $TMP
 mv $TMP/chrome_sandbox $TMP/chrome-sandbox
 
 pushd $TMP &> /dev/null
