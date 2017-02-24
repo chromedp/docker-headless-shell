@@ -3,11 +3,15 @@
 SRC=${1:-/media/src/chromium/src}
 VER=$2
 
+FILES="headless/lib/headless_crash_reporter_client.cc headless/public/headless_browser.cc"
+
 pushd $SRC &> /dev/null
 
 set -ex
 
-git reset --hard
+for f in $FILES; do
+  git checkout $f
+done
 
 git rebase-update
 
@@ -21,7 +25,7 @@ git checkout $VER
 
 gclient sync
 
-for f in "headless/lib/headless_crash_reporter_client.cc headless/public/headless_browser.cc"; do
+for f in $FILES; do
   perl -pi -e 's/"HeadlessChrome"/"Chrome\/'$VER'"/' $f
 done
 
