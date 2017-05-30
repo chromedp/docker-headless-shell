@@ -26,7 +26,7 @@ git checkout $VER
 gclient sync
 
 for f in $FILES; do
-  perl -pi -e 's/"HeadlessChrome"/"Chrome\/'$VER'"/' $f
+  perl -pi -e 's/"HeadlessChrome"/"Chrome"/' $f
 done
 
 rm -rf $PROJECT
