@@ -40,6 +40,6 @@ remove_webcore_debug_symbols=true' > $PROJECT/args.gn
 
 gn gen $PROJECT
 
-ninja -C $PROJECT headless_shell chrome_sandbox
+ninja -C $PROJECT headless_shell chrome_sandbox libosmesa.so
 
 popd &> /dev/null
