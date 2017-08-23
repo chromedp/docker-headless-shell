@@ -26,7 +26,12 @@ TMP=$(mktemp -d -p /tmp headless_shell-$VER.XXXXX)
 
 OUT=$SRC/$PROJECT.tar.bz2
 
+echo "VER:     $VER"
+echo "PROJECT: $BUILD/$PROJECT"
+echo "OUT:     $OUT"
+
 set -v
+
 rm -f $OUT
 
 rsync -a $BUILD/$PROJECT/{headless_shell,headless_lib.pak,libosmesa.so,chrome_sandbox} $TMP
@@ -36,6 +41,6 @@ pushd $TMP &> /dev/null
 
 strip headless_shell chrome-sandbox *.so
 
-tar -cjvf $OUT *
+tar -cjf $OUT *
 
 popd &> /dev/null
