@@ -12,9 +12,9 @@ and easy to use API for driving browsers compatible with the [Chrome Debugging
 Protocol](https://developer.chrome.com/devtools/docs/debugger-protocol).
 
 The version of `headless_shell` contained in this Docker image has been
-[modified from the original](patches/) Chromium source tree, to report the same
-user agent as Chrome, and has had other minor modifications made to it in order
-make it better suited for use in an embedded context.
+modified from the original Chromium source tree, to report the same user agent
+as Chrome, and has had other minor modifications made to it in order make it
+better suited for use in an embedded context.
 
 ## Running
 
