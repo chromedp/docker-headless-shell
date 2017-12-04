@@ -15,12 +15,14 @@ pushd $DEPOT_TOOLS_DIR &> /dev/null
 git reset --hard && git pull
 popd &> /dev/null
 
-FILES="headless/lib/headless_crash_reporter_client.cc headless/public/headless_browser.cc"
+FILES="headless/lib/headless_crash_reporter_client.cc headless/lib/browser/headless_url_request_context_getter.cc headless/public/headless_browser.cc"
 
 pushd $SRC &> /dev/null
 
 for f in $FILES; do
-  git checkout $f
+  if [ -f "$f" ]; then
+    git checkout $f
+  fi
 done
 
 set -x
@@ -38,7 +40,9 @@ git checkout $VER
 gclient sync
 
 for f in $FILES; do
-  perl -pi -e 's/"HeadlessChrome"/"Chrome"/' $f
+  if [ -f "$f" ]; then
+    perl -pi -e 's/"HeadlessChrome"/"Chrome"/' $f
+  fi
 done
 
 rm -rf $PROJECT
