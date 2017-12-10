@@ -1,6 +1,6 @@
 #!/bin/bash
 
-SRC=${1:-/media/src/chromium/src}
+SRC=${1:-/media/src}
 VER=$2
 
 set -e
@@ -17,7 +17,31 @@ popd &> /dev/null
 
 FILES="headless/lib/headless_crash_reporter_client.cc headless/lib/browser/headless_url_request_context_getter.cc headless/public/headless_browser.cc"
 
-pushd $SRC &> /dev/null
+if [ ! -d $SRC/chromium ]; then
+  mkdir -p $SRC/chromium
+fi
+
+if [ ! -d $SRC/chromium/src ]; then
+  # retrieve chromium source tree (> 17 gigabytes)
+  pushd $SRC/chromium &> /dev/null
+  fetch --nohooks chromium
+  popd &> /dev/null
+
+  # attempt to install build deps
+  pushd $SRC/chromium/src &> /dev/null
+  sudo ./build/install-build-deps.sh \
+    --no-prompt \
+    --no-arm \
+    --no-nacl \
+    --no-syms \
+    --unsupported
+
+  # run hooks (one-time only)
+  gclient runhooks
+  popd &> /dev/null
+fi
+
+pushd $SRC/chromium/src &> /dev/null
 
 for f in $FILES; do
   if [ -f "$f" ]; then
@@ -52,6 +76,8 @@ mkdir -p $PROJECT
 echo 'import("//build/args/headless.gn")
 is_debug=false
 symbol_level=0
+enable_nacl=false
+use_jumbo_build=true
 remove_webcore_debug_symbols=true' > $PROJECT/args.gn
 
 gn gen $PROJECT
