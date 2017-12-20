@@ -1,24 +1,20 @@
-FROM blitznote/debootstrap-amd64:16.04 
+FROM blitznote/debase:17.10
 
 RUN \
     apt-get clean && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/* \
     && perl -pi -e 's/archive.ubuntu.com/us.archive.ubuntu.com/' /etc/apt/sources.list \
-    && apt-get update -y \
-    && apt-get dist-upgrade --allow-change-held-packages --ignore-hold --assume-yes
-    
+    && apt-get update -y
+
 RUN \
     apt-get install -y \
-    libnspr4 libnspr4-0d libnspr4 libnss3 libnss3-1d \
-    libexpat1 libfontconfig1
+    libnspr4 libnss3 libexpat1 libfontconfig1
 
 RUN \
     apt-get clean && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/* 
 
 ARG VER
-RUN \
-    mkdir -p /headless_shell \
-    && cd /headless_shell/ \
-    && curl -s https://storage.googleapis.com/docker-chrome-headless/headless_shell-$VER.tar.bz2 | tar -jxv
+
+ADD out/headless_shell-$VER.tar.bz2 /headless_shell/
 
 EXPOSE 9222
 
