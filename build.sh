@@ -15,6 +15,6 @@ fi
 
 pushd $SRC &> /dev/null
 
-docker build --build-arg VER=$VER -t knqz/chrome-headless:$VER .
+docker build --build-arg VER=$VER -t chromedp/headless-shell:$VER .
 
 popd &> /dev/null
