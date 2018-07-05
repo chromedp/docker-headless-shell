@@ -1,4 +1,4 @@
-FROM blitznote/debase:17.10
+FROM blitznote/debase:18.04
 
 RUN \
     apt-get clean && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/* \
@@ -7,7 +7,7 @@ RUN \
 
 RUN \
     apt-get install -y \
-    libnspr4 libnss3 libexpat1 libfontconfig1
+    libnspr4 libnss3 libexpat1 libfontconfig1 libuuid1
 
 RUN \
     apt-get clean && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/* 
