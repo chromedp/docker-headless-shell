@@ -5,9 +5,9 @@ The [headless-shell][headless-shell] project provides a Docker image,
 version of Chrome's `headless_shell` -- a slimmed down version of Chrome that
 is useful for driving, profiling, or testing web pages.
 
-Notably, this Docker image has been created expressly for the Go [chromedp][chromedp]
-package, which provides a simple and easy to use API for driving browsers
-compatible with the [Chrome Debugging Protocol][devtools-protocol].
+Notably, this Docker image has been created expressly for the Go [`chromedp`
+package][chromedp], which provides a simple and easy to use API for driving
+browsers compatible with the [Chrome Debugging Protocol][devtools-protocol].
 
 The version of `headless_shell` contained in this Docker image has been
 modified from the original Chromium source tree, to report the same user agent
@@ -59,9 +59,6 @@ Chromium source tree, you can simply run [`build.sh`](build.sh):
 ```sh
 # build headless_shell
 $ ./build-headless_shell.sh /path/to/chromium/src 69.0.3481.1
-
-# package headless_shell (places a tar.bz2 in the $PWD/out)
-$ ./package.sh /path/to/chromium/src 69.0.3481.1
 
 # build docker image (uses $PWD/out/headless_shell-$VER.tar.bz2)
 $ ./build.sh 69.0.3481.1
