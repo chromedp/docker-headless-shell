@@ -5,26 +5,39 @@ VER=$2
 
 SRC=$(realpath $(cd -P "$( dirname "${BASH_SOURCE[0]}" )" && pwd ))
 
+# determine update state
+UPDATE=0
+LAST=0
+if [ -e $SRC/.last ]; then
+  LAST=$(cat $SRC/.last)
+fi
+if [ "$((`date +%s` - $LAST))" -gt 86400 ]; then
+  UPDATE=1
+fi
+
+# files in the chromium source that contain the HeadlessChrome string
+FILES="headless/lib/browser/headless_url_request_context_getter.cc headless/public/headless_browser.cc"
+
 set -e
 
 DEPOT_TOOLS_DIR=$(dirname $(which gclient))
 if [ -z "$DEPOT_TOOLS_DIR" ]; then
-  echo "cannot find gclient"
+  echo "gclient not in \$PATH"
   exit 1
 fi
 
 # update to latest depot_tools
-pushd $DEPOT_TOOLS_DIR &> /dev/null
-git reset --hard && git pull
-popd &> /dev/null
-
-FILES="headless/lib/headless_crash_reporter_client.cc headless/lib/browser/headless_url_request_context_getter.cc headless/public/headless_browser.cc"
-
-if [ ! -d $TREE/chromium ]; then
-  mkdir -p $TREE/chromium
+if [ "$UPDATE" -eq "1" ]; then
+  pushd $DEPOT_TOOLS_DIR &> /dev/null
+  git reset --hard
+  git pull
+  popd &> /dev/null
 fi
 
-# retrieve chromium source tree if it doesn't exist
+# chromium source tree dir
+mkdir -p $TREE/chromium
+
+# retrieve chromium source tree
 if [ ! -d $TREE/chromium/src ]; then
   # retrieve
   pushd $TREE/chromium &> /dev/null
@@ -39,15 +52,21 @@ fi
 
 pushd $TREE/chromium/src &> /dev/null
 
-# reset the changed files (to avoid a reset --hard)
-for f in $FILES; do
-  if [ -f "$f" ]; then
-    git checkout $f
-  fi
-done
+# update chromium source tree
+if [ "$UPDATE" -eq "1" ]; then
+  # checkout changed files (avoid reset --hard)
+  for f in $FILES; do
+    if [ -f "$f" ]; then
+      git checkout $f
+    fi
+  done
 
-# retrieve updates
-git checkout master && git rebase-update
+  # update
+  git checkout master
+  git rebase-update
+
+  date +%s > $SRC/.last
+fi
 
 # determine latest version
 if [ -z "$VER" ]; then
@@ -63,30 +82,33 @@ echo "OUT: $OUT"
 
 PROJECT=out/headless_shell
 
-# checkout and sync third-party dependencies
-git checkout $VER
-gclient sync
+if [ "$UPDATE" -eq "1" ]; then
+  # checkout and sync third-party dependencies
+  git checkout $VER
 
-# change user-agent
-for f in $FILES; do
-  if [ -f "$f" ]; then
-    perl -pi -e 's/"HeadlessChrome"/"Chrome"/' $f
-  fi
-done
+  gclient sync
 
-# ensure build directory exists
-mkdir -p $PROJECT
+  # change user-agent
+  for f in $FILES; do
+    if [ -f "$f" ]; then
+      perl -pi -e 's/"HeadlessChrome"/"Chrome"/' $f
+    fi
+  done
 
-# gn build args
-echo 'import("//build/args/headless.gn")
-is_debug=false
-symbol_level=0
-enable_nacl=false
-use_jumbo_build=true
-remove_webcore_debug_symbols=true' > $PROJECT/args.gn
+  # ensure build directory exists
+  mkdir -p $PROJECT
 
-# generate build files
-gn gen $PROJECT
+  # gn build args
+  echo 'import("//build/args/headless.gn")
+  is_debug=false
+  symbol_level=0
+  enable_nacl=false
+  use_jumbo_build=true
+  remove_webcore_debug_symbols=true' > $PROJECT/args.gn
+
+  # generate build files
+  gn gen $PROJECT
+fi
 
 # build
 ninja -C $PROJECT headless_shell chrome_sandbox libosmesa.so
