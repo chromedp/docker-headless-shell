@@ -14,7 +14,7 @@ RUN \
 
 ARG VER
 
-ADD out/headless_shell-$VER.tar.bz2 /headless_shell/
+ADD out/headless_shell-$VER.tar.bz2 /
 
 EXPOSE 9222
 
