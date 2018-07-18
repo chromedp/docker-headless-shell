@@ -2,14 +2,14 @@
 
 The [headless-shell][headless-shell] project provides a Docker image,
 [`chromedp/headless-shell`][docker-headless-shell], containing a pre-built
-version of Chrome's `headless_shell` -- a slimmed down version of Chrome that
+version of Chrome's `headless-shell` -- a slimmed down version of Chrome that
 is useful for driving, profiling, or testing web pages.
 
 Notably, this Docker image has been created expressly for the Go [`chromedp`
 package][chromedp], which provides a simple and easy to use API for driving
 browsers compatible with the [Chrome Debugging Protocol][devtools-protocol].
 
-The version of `headless_shell` contained in this Docker image has been
+The version of `headless-shell` contained in this Docker image has been
 modified from the original Chromium source tree, to report the same user agent
 as Chrome, and has had other minor modifications made to it in order make it
 better suited for use in an embedded context.
@@ -37,30 +37,30 @@ The following contains instructions for building and packaging the
 ### Setup and Building
 
 If you'd like to build this image yourself, locally, you will need to build
-`headless_shell` manually from the Chromium source. As such you will need to
+`headless-shell` manually from the Chromium source. As such you will need to
 setup Chromium's `depot_tools`, your build environment, and a full checkout of
 the Chromium source tree and its related dependencies.
 
 Please see the following for instructions on building Chromium and
-`headless_shell` on Linux:
+`headless-shell` on Linux:
 
 * [Checking out and building Chromium on Linux][building-linux]
 * [Building Headless Chromium][building-headless]
 
 Before proceeding, please ensure you have fully completed the above, have
-manually built `headless_shell` at least once, and that your Chromium source
+manually built `headless-shell` at least once, and that your Chromium source
 tree is up-to-date.
 
 ### Building
 
-After you are able to successfully build `headless_shell` directly from the
+After you are able to successfully build `headless-shell` directly from the
 Chromium source tree, you can simply run [`build.sh`](build.sh):
 
 ```sh
-# build headless_shell
-$ ./build-headless_shell.sh /path/to/chromium/src 69.0.3481.1
+# build headless-shell
+$ ./build-headless-shell.sh /path/to/chromium/src 69.0.3481.1
 
-# build docker image (uses $PWD/out/headless_shell-$VER.tar.bz2)
+# build docker image (uses $PWD/out/headless-shell-$VER.tar.bz2)
 $ ./build.sh 69.0.3481.1
 ```
 

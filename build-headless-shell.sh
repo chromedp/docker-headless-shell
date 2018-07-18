@@ -73,14 +73,14 @@ if [ -z "$VER" ]; then
   VER=$(git tag -l|grep -E '^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$'|sort -r -V|head -1)
 fi
 
-TMP=$(mktemp -d -p /tmp headless_shell-$VER.XXXXX)
-OUT=$SRC/out/headless_shell-$VER.tar.bz2
+TMP=$(mktemp -d -p /tmp headless-shell-$VER.XXXXX)
+OUT=$SRC/out/headless-shell-$VER.tar.bz2
 
 echo "VER: $VER"
 echo "TMP: $TMP"
 echo "OUT: $OUT"
 
-PROJECT=out/headless_shell
+PROJECT=out/headless-shell
 
 if [ "$UPDATE" -eq "1" ]; then
   # checkout and sync third-party dependencies
@@ -117,15 +117,16 @@ ninja -C $PROJECT headless_shell chrome_sandbox libosmesa.so
 echo $VER > $PROJECT/.stamp
 
 # copy files
-mkdir -p $TMP/headless_shell
-cp -a $PROJECT/{headless_shell,headless_lib.pak,libosmesa.so,chrome_sandbox,.stamp} $TMP/headless_shell
+mkdir -p $TMP/headless-shell
+cp -a $PROJECT/{headless_shell,headless_lib.pak,libosmesa.so,chrome_sandbox,.stamp} $TMP/headless-shell
 
 popd &> /dev/null
 
 # rename chrome_sandbox and strip
-pushd $TMP/headless_shell &> /dev/null
+pushd $TMP/headless-shell &> /dev/null
 mv chrome_sandbox chrome-sandbox
-strip headless_shell chrome-sandbox *.so
+mv headless_shell headless-shell
+strip headless-shell chrome-sandbox *.so
 popd &> /dev/null
 
 # remove previous
@@ -133,5 +134,5 @@ rm -f $OUT
 
 # package tar
 pushd $TMP &> /dev/null
-tar -cjf $OUT headless_shell
+tar -cjf $OUT headless-shell
 popd &> /dev/null

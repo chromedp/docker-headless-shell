@@ -14,8 +14,8 @@ RUN \
 
 ARG VER
 
-ADD out/headless_shell-$VER.tar.bz2 /
+ADD out/headless-shell-$VER.tar.bz2 /
 
 EXPOSE 9222
 
-ENTRYPOINT [ "/headless_shell/headless_shell", "--headless", "--no-sandbox", "--remote-debugging-address=0.0.0.0", "--remote-debugging-port=9222" ]
+ENTRYPOINT [ "/headless-shell/headless-shell", "--headless", "--no-sandbox", "--remote-debugging-address=0.0.0.0", "--remote-debugging-port=9222" ]
