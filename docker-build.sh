@@ -16,5 +16,9 @@ fi
 pushd $SRC &> /dev/null
 
 docker build --build-arg VER=$VER -t chromedp/headless-shell:$VER .
+docker tag chromedp/headless-shell:$VER chromedp/headless-shell:latest
+
+#docker push chromedp/headless-shell:$VER
+#docker push chromedp/headless-shell:latest
 
 popd &> /dev/null

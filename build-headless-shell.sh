@@ -1,77 +1,9 @@
 #!/bin/bash
 
-TREE=${1:-/media/src}
-VER=$2
+TREE=${1:-/media/src/x}
+VER="68.0.3440.75"
 
 SRC=$(realpath $(cd -P "$( dirname "${BASH_SOURCE[0]}" )" && pwd ))
-
-# determine update state
-UPDATE=0
-LAST=0
-if [ -e $SRC/.last ]; then
-  LAST=$(cat $SRC/.last)
-fi
-if [ "$((`date +%s` - $LAST))" -gt 86400 ]; then
-  UPDATE=1
-fi
-
-# files in the chromium source that contain the HeadlessChrome string
-FILES="headless/lib/browser/headless_url_request_context_getter.cc headless/public/headless_browser.cc"
-
-set -e
-
-DEPOT_TOOLS_DIR=$(dirname $(which gclient))
-if [ -z "$DEPOT_TOOLS_DIR" ]; then
-  echo "gclient not in \$PATH"
-  exit 1
-fi
-
-# update to latest depot_tools
-if [ "$UPDATE" -eq "1" ]; then
-  pushd $DEPOT_TOOLS_DIR &> /dev/null
-  git reset --hard
-  git pull
-  popd &> /dev/null
-fi
-
-# chromium source tree dir
-mkdir -p $TREE/chromium
-
-# retrieve chromium source tree
-if [ ! -d $TREE/chromium/src ]; then
-  # retrieve
-  pushd $TREE/chromium &> /dev/null
-  fetch --nohooks chromium
-  popd &> /dev/null
-
-  # run hooks
-  pushd $TREE/chromium/src &> /dev/null
-  gclient runhooks
-  popd &> /dev/null
-fi
-
-pushd $TREE/chromium/src &> /dev/null
-
-# update chromium source tree
-if [ "$UPDATE" -eq "1" ]; then
-  # checkout changed files (avoid reset --hard)
-  for f in $FILES; do
-    if [ -f "$f" ]; then
-      git checkout $f
-    fi
-  done
-
-  # update
-  git checkout master
-  git rebase-update
-
-  date +%s > $SRC/.last
-fi
-
-# determine latest version
-if [ -z "$VER" ]; then
-  VER=$(git tag -l|grep -E '^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$'|sort -r -V|head -1)
-fi
 
 TMP=$(mktemp -d -p /tmp headless-shell-$VER.XXXXX)
 OUT=$SRC/out/headless-shell-$VER.tar.bz2
@@ -82,51 +14,106 @@ echo "OUT: $OUT"
 
 PROJECT=out/headless-shell
 
-if [ "$UPDATE" -eq "1" ]; then
-  # checkout and sync third-party dependencies
-  git checkout $VER
+export AR=ar
+export CC=/usr/bin/clang-6.0
+export CXX=/usr/bin/clang++-6.0
+export LD=ld
 
-  gclient sync
+set -e
 
-  # change user-agent
-  for f in $FILES; do
-    if [ -f "$f" ]; then
-      perl -pi -e 's/"HeadlessChrome"/"Chrome"/' $f
-    fi
-  done
+_gn_flags() {
+  echo $*
+}
 
-  # ensure build directory exists
-  mkdir -p $PROJECT
+pushd $TREE/chromium-$VER
 
-  # gn build args
-  echo 'import("//build/args/headless.gn")
-  is_debug=false
-  symbol_level=0
-  enable_nacl=false
-  use_jumbo_build=true
-  remove_webcore_debug_symbols=true' > $PROJECT/args.gn
+# change user-agent
+find ./headless/ -type f -iname \*.h -or -iname \*.cc -exec \
+  perl -pi -e 's/"HeadlessChrome"/"Chrome"/' {} \;
 
-  # generate build files
-  gn gen $PROJECT
-fi
+# apply patches
+for i in $(cat $SRC/alpine/patch-order.txt); do
+  echo "APPLYING: alpine/$i"
+  set +e
+  patch -p0 -N -r - -s -V never -i $SRC/alpine/$i
+  set -e
+done
+
+# ensure build directory exists
+mkdir -p $PROJECT
+
+_c=$(_gn_flags is_clang=true \
+  use_sysroot=false \
+  treat_warnings_as_errors=false \
+  fatal_linker_warnings=false \
+  binutils_path=\"/usr/bin\" \
+  use_gold=false \
+  use_allocator=\"none\" \
+  use_allocator_shim=false \
+)
+
+#AR="ar" CC="$CC" CXX="$CXX" LD="$CXX" \
+#  python tools/gn/bootstrap/bootstrap.py -s -v --no-clean --build-path=out/gn --gn-gen-args "$_c"
+
+# gn build args
+echo 'import("//build/args/headless.gn")
+
+# default
+is_debug=false
+symbol_level=0
+enable_nacl=false
+use_jumbo_build=true
+remove_webcore_debug_symbols=true
+
+# taken from APKBUILD
+clang_use_chrome_plugins=false
+custom_toolchain="//build/toolchain/linux/unbundle:default"
+enable_extensions=false
+enable_nacl_nonsfi=false
+enable_precompiled_headers=false
+fatal_linker_warnings=false
+ffmpeg_branding="Chrome"
+fieldtrial_testing_like_official_build=true
+gold_path="/usr/bin/ld.gold"
+host_toolchain="//build/toolchain/linux/unbundle:default"
+icu_use_data_file=true
+is_clang=true
+linux_use_bundled_binutils=false
+proprietary_codecs=true
+treat_warnings_as_errors=false
+use_allocator="none"
+use_allocator_shim=false
+use_cups=true
+use_custom_libcxx=false
+use_gnome_keyring=false
+use_gold=false
+use_lld=false
+use_pulseaudio=false
+use_sysroot=false
+use_system_harfbuzz=true
+' > $PROJECT/args.gn
+
+# generate build files
+./out/gn/gn gen $PROJECT
 
 # build
-ninja -C $PROJECT headless_shell chrome_sandbox libosmesa.so
+AR=$AR CC=$CC CXX=$CXX LD=$LD \
+  ninja -C $PROJECT headless_shell libosmesa.so
 
 # build stamp
 echo $VER > $PROJECT/.stamp
 
 # copy files
 mkdir -p $TMP/headless-shell
-cp -a $PROJECT/{headless_shell,headless_lib.pak,libosmesa.so,chrome_sandbox,.stamp} $TMP/headless-shell
+cp -a $PROJECT/{headless_shell,headless_lib.pak,libosmesa.so,.stamp} $TMP/headless-shell
 
 popd &> /dev/null
 
-# rename chrome_sandbox and strip
+# rename files and strip
 pushd $TMP/headless-shell &> /dev/null
-mv chrome_sandbox chrome-sandbox
+#mv chrome_sandbox chrome-sandbox
 mv headless_shell headless-shell
-strip headless-shell chrome-sandbox *.so
+strip headless-shell *.so
 chmod -x *.so
 popd &> /dev/null
 

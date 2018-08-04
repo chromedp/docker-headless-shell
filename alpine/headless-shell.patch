@@ -1,0 +1,31 @@
+diff --git ./build/config/compiler/BUILD.gn ./build/config/compiler/BUILD.gn
+index 8cb93e3d61d7..82ef5d6228a9 100644
+--- ./build/config/compiler/BUILD.gn
++++ ./build/config/compiler/BUILD.gn
+@@ -1406,7 +1406,7 @@ config("default_warnings") {
+ 
+         # Ignore warnings about MSVC optimization pragmas.
+         # TODO(thakis): Only for no_chromium_code? http://crbug.com/505314
+-        "-Wno-ignored-pragma-optimize",
++        #"-Wno-ignored-pragma-optimize",
+       ]
+     } else if (use_xcode_clang) {
+       cflags += [
+diff --git ./third_party/crashpad/crashpad/util/linux/ptracer.cc ./third_party/crashpad/crashpad/util/linux/ptracer.cc
+index 24ef002d3f5c..f965805a1b41 100644
+--- ./third_party/crashpad/crashpad/util/linux/ptracer.cc
++++ ./third_party/crashpad/crashpad/util/linux/ptracer.cc
+@@ -69,9 +69,10 @@ bool GetThreadArea32(pid_t tid,
+                      bool can_log) {
+   size_t index = (context.t32.xgs & 0xffff) >> 3;
+   user_desc desc;
+-  if (ptrace(
+-          PTRACE_GET_THREAD_AREA, tid, reinterpret_cast<void*>(index), &desc) !=
+-      0) {
++  if (ptrace(static_cast<enum __ptrace_request>(PTRACE_GET_THREAD_AREA),
++             tid,
++             reinterpret_cast<void*>(index),
++             &desc) != 0) {
+     PLOG_IF(ERROR, can_log) << "ptrace";
+     return false;
+   }
