@@ -127,6 +127,7 @@ pushd $TMP/headless-shell &> /dev/null
 mv chrome_sandbox chrome-sandbox
 mv headless_shell headless-shell
 strip headless-shell chrome-sandbox *.so
+chmod -x *.so
 popd &> /dev/null
 
 # remove previous
