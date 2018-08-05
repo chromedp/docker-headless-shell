@@ -1,7 +1,6 @@
 #!/bin/bash
 
 TREE=${1:-/media/src}
-#VER=$2
 VER="68.0.3440.75"
 
 SRC=$(realpath $(cd -P "$( dirname "${BASH_SOURCE[0]}" )" && pwd ))
@@ -110,9 +109,7 @@ find ./headless/ -type f -iname \*.h -or -iname \*.cc -exec \
 # apply patches
 for i in $(cat $SRC/alpine/patch-order.txt); do
 	echo "APPLYING: alpine/$i"
-	set +e
 	patch -p0 -N -r - -s -V never -i $SRC/alpine/$i
-	set -e
 done
 
 # ensure build directory exists

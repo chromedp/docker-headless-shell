@@ -11,6 +11,22 @@ index 8cb93e3d61d7..82ef5d6228a9 100644
        ]
      } else if (use_xcode_clang) {
        cflags += [
+diff --git ./headless/BUILD.gn ./headless/BUILD.gn
+index 1fd06ba6babc..d1f6edc255f9 100644
+--- ./headless/BUILD.gn
++++ ./headless/BUILD.gn
+@@ -992,6 +992,11 @@ executable("headless_shell") {
+     "//build/config:exe_and_shlib_deps",
+   ]
+ 
++  libs = [
++    "rt",
++    "event",
++  ]
++
+   if (!headless_use_embedded_resources) {
+     data = [
+       "$root_out_dir/headless_lib.pak",
 diff --git ./third_party/crashpad/crashpad/util/linux/ptracer.cc ./third_party/crashpad/crashpad/util/linux/ptracer.cc
 index 24ef002d3f5c..f965805a1b41 100644
 --- ./third_party/crashpad/crashpad/util/linux/ptracer.cc
