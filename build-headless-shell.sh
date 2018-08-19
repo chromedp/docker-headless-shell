@@ -104,21 +104,24 @@ if [ "$UPDATE" -eq "1" ]; then
   symbol_level=0
   enable_nacl=false
   use_jumbo_build=true
-  remove_webcore_debug_symbols=true' > $PROJECT/args.gn
+  remove_webcore_debug_symbols=true
+  headless_use_embedded_resources=true
+  ' > $PROJECT/args.gn
 
   # generate build files
   gn gen $PROJECT
 fi
 
 # build
-ninja -C $PROJECT headless_shell chrome_sandbox libosmesa.so
+ninja -C $PROJECT headless_shell chrome_sandbox
 
 # build stamp
 echo $VER > $PROJECT/.stamp
 
 # copy files
-mkdir -p $TMP/headless-shell
-cp -a $PROJECT/{headless_shell,headless_lib.pak,libosmesa.so,chrome_sandbox,.stamp} $TMP/headless-shell
+mkdir -p $TMP/headless-shell/swiftshader
+cp -a $PROJECT/{headless_shell,libosmesa.so,chrome_sandbox,.stamp} $TMP/headless-shell
+cp -a $PROJECT/swiftshader/*.so $TMP/headless-shell/swiftshader
 
 popd &> /dev/null
 
@@ -126,8 +129,8 @@ popd &> /dev/null
 pushd $TMP/headless-shell &> /dev/null
 mv chrome_sandbox chrome-sandbox
 mv headless_shell headless-shell
-strip headless-shell chrome-sandbox *.so
-chmod -x *.so
+strip headless-shell chrome-sandbox *.so swiftshader/*.so
+chmod -x *.so swiftshader/*.so
 popd &> /dev/null
 
 # remove previous
