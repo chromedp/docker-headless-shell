@@ -20,13 +20,16 @@ You can use this Docker image in the usual way:
 
 ```sh
 # pull latest version of headless-shell
-docker pull chromedp/headless-shell:latest
+$ docker pull chromedp/headless-shell:latest
 
 # pull specific tagged version of headless-shell
-docker pull chromedp/headless-shell:69.0.3481.1
+$ docker pull chromedp/headless-shell:69.0.3481.1
 
 # run
-docker run -d -p 9222:9222 --rm --name headless-shell chromedp/headless-shell
+$ docker run -d -p 9222:9222 --rm --name headless-shell chromedp/headless-shell
+
+# if headless-shell is crashing with a BUS_ADRERR error, pass a larger shm-size:
+$ docker run -d -p 9222:9222 --rm --name headless-shell --shm-size 2G chromedp/headless-shell
 ```
 
 ## Building and Packaging
