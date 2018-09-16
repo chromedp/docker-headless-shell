@@ -137,13 +137,13 @@ PROJECT=out/headless-shell
 #export CXX=/usr/bin/clang++-6.0
 #export LD=ld
 
-_reset_files
+#_reset_files
 
 # change user-agent
-find ./headless/ -type f -iname \*.h -or -iname \*.cc -exec \
-  perl -pi -e 's/"HeadlessChrome"/"Chrome"/' {} \;
+#find ./headless/ -type f -iname \*.h -or -iname \*.cc -exec \
+#  perl -pi -e 's/"HeadlessChrome"/"Chrome"/' {} \;
 
-_apply_patches
+#_apply_patches
 
 # ensure build directory exists
 mkdir -p $PROJECT
@@ -158,6 +158,8 @@ enable_nacl=false
 use_jumbo_build=true
 remove_webcore_debug_symbols=true
 
+is_clang=true
+use_custom_libcxx=false
 treat_warnings_as_errors=false
 
 use_allocator="tcmalloc"
