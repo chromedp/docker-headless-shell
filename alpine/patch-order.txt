@@ -12,6 +12,8 @@ resolver.patch
 swiftshader.patch
 secure_getenv.patch
 chromium-clang-r2.patch
+chromium-use-alpine-target.patch
+chromium-remove-unknown-clang-warnings.patch
 chromium-gcc-r1.patch
 chromium-skia-harmony.patch
 chromium-cors-string-r0.patch
