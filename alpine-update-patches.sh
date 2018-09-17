@@ -6,7 +6,7 @@ SRC=$(realpath $(cd -P "$( dirname "${BASH_SOURCE[0]}" )" && pwd ))
 
 set -e
 
-mkdir -p $SRC/alpine
+rm -f $SRC/*.patch
 
 if [ ! -d $TREE/aports ]; then
   pushd $TREE &> /dev/null
@@ -21,11 +21,6 @@ git reset --hard
 git pull
 
 # copy patch files
-cp APKBUILD *.patch $SRC/alpine
-
-# get patch order from APKBUILD
-sed -ne 's/^\t\([^\.]\+\.patch\)$/\1/p' $SRC/alpine/APKBUILD > $SRC/alpine/patch-order.txt
-
-echo "headless-shell.patch" >> $SRC/alpine/patch-order.txt
+cp *.patch $SRC/
 
 popd &> /dev/null

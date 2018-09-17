@@ -1,13 +1,11 @@
-# Contributor: Carlo Landmeter <clandmeter@gmail.com>
-# Maintainer: Carlo Landmeter <clandmeter@gmail.com>
-pkgname=chromium
-pkgver=68.0.3440.106
+pkgname=headless-shell
+pkgver=$VERSION
 pkgrel=0
-pkgdesc="chromium web browser"
-url="http://www.chromium.org/"
-arch="x86_64 aarch64 armhf"
+pkgdesc="chromium headless-shell"
+url="https://chromium.org"
+arch="x86_64"
 license="BSD"
-depends="xdg-utils"
+depends="eudev-libs ttf-opensans ca-certificates"
 depends_dev=""
 makedepends="$depends_dev
 	alsa-lib-dev
@@ -17,8 +15,8 @@ makedepends="$depends_dev
 	bsd-compat-headers
 	bzip2-dev
 	cairo-dev
-	clang
-	clang-dev
+	'clang>6.0'
+	'clang-dev>6.0'
 	cups-dev
 	dbus-glib-dev
 	eudev-dev
@@ -71,25 +69,14 @@ makedepends="$depends_dev
 	snappy-dev
 	speex-dev
 	sqlite-dev
-	xdg-utils
 	yasm
 	zlib-dev
 	"
 install=""
-# explicit depends for --headless
-depends="eudev-libs ttf-opensans"
 options=suid
-subpackages="$pkgname-chromedriver"
-source="https://commondatastorage.googleapis.com/chromium-browser-official/$pkgname-$pkgver.tar.xz
-	pstables-2.8.h::http://git.savannah.gnu.org/cgit/freetype/freetype2.git/plain/src/psnames/pstables.h?h=VER-2-8
-	chromium-launcher.sh
-	chromium.conf
-	chromium.desktop
-	google-api.keys
-
+subpackages=""
+source="
 	default-pthread-stacksize.patch
-	gn_bootstrap.patch
-	last-commit-position.patch
 	musl-fixes.patch
 	musl-fixes-breakpad.patch
 	musl-hacks.patch
@@ -173,23 +160,8 @@ prepare() {
 			\! -regex '.*\.\(gn\|gni\|isolate\|py\)' \
 			-delete
 	done
-#		freetype
-#		harfbuzz-ng
 
-	# pdfium uses internal headers in freetype
-	# we copy from freetype sources
-	# https://bugs.chromium.org/p/pdfium/issues/detail?id=733
-	# should be fixed in freetype:
-	# https://savannah.nongnu.org/bugs/index.php?51156
-#	mkdir -p "third_party/freetype/src/src/psnames/"
-#	cp "$srcdir"/pstables-2.8.h third_party/freetype/src/src/psnames/pstables.h
-
-	# Work around bug in v8 in which GCC 6 optimizes away null pointer checks
-	# https://bugs.chromium.org/p/v8/issues/detail?id=3782
-	# https://gcc.gnu.org/bugzilla/show_bug.cgi?id=69234
-#	CFLAGS="$CFLAGS -fno-delete-null-pointer-checks"
-
-	msg "Replacing gyp files"
+	msg "Replacing gn files"
 	python build/linux/unbundle/replace_gn_files.py --system-libraries \
 		${use_system}
 	third_party/libaddressinput/chromium/tools/update-strings.py
@@ -202,38 +174,8 @@ _gn_flags() {
 build() {
 	cd "$builddir"
 
-	##############################################################
-	# Please dont use these keys outside of Alpine Linux project #
-	# You can create your own at:                                #
-	# http://www.chromium.org/developers/how-tos/api-keys        #
-	##############################################################
-	eval "$(base64 -d < $srcdir/google-api.keys)"
-
 	export CC=clang
 	export CXX=clang++
-
-	local _ca=""
-	#case "$CARCH" in
-	# Chromium build as armv6 is broken, ffmpeg fails utterly
-	# The default is armv7 which is not armhf standard, but better than nothing.
-	#armhf) _ca=$(_gn_flags arm_version=6 arm_arch=\"armv6zk\" \
-	#		arm_fpu=\"vfp\" arm_float_abi=\"hard\" \
-	#		arm_use_neon=false arm_optionally_use_neon=true);;
-	#esac
-
-	msg "Bootstrapping GN"
-	local _c=$(_gn_flags is_clang=true \
-		use_sysroot=false \
-		treat_warnings_as_errors=false \
-		fatal_linker_warnings=false \
-		binutils_path=\"/usr/bin\" \
-		use_gold=false \
-		use_allocator=\"none\" \
-		use_allocator_shim=false \
-	)
-
-	AR="ar" CC="$CC" CXX="$CXX" LD="$CXX" \
-		python tools/gn/bootstrap/bootstrap.py -s -v --no-clean --gn-gen-args "$_c $_ca"
 
 	msg "Configuring build"
 	_c=$(_gn_flags \
@@ -272,35 +214,19 @@ build() {
 		use_system_harfbuzz=true \
 	)
 
+    # generate configs
 	AR="ar" CC="$CC" CXX="$CXX" LD="$CXX" NM=/usr/bin/nm \
-		out/Release/gn gen out/$_buildtype --args="$_c $_ca"
+		gn gen out/$_buildtype --args="$_c"
 
-	msg "Ninja turtles GO!"
-	# workaround parallel build
-	ninja -C out/Release gen/ui/accessibility/ax_enums.p
-
-	# build mksnapshot and paxmark it
-	ninja -C out/$_buildtype mksnapshot
-	paxmark -m out/$_buildtype/mksnapshot
-	ninja -C out/$_buildtype v8_context_snapshot_generator
-	paxmark -m out/Release/v8_context_snapshot_generator \
-		out/Release/obj/tools/v8_context_snapshot/v8_context_snapshot_generator
-
-	# finish rest of the build
-	ninja -C out/$_buildtype chrome chrome_sandbox chromedriver
+	# build
+	ninja -C out/$_buildtype headless_shell chrome_sandbox
 }
 
 package() {
 	cd "$builddir"/out/$_buildtype
-	local bin pak
-	# paxmark inside chroot too
-	paxmark -m mksnapshot
 
-	for bin in chrome chromedriver *.bin; do
-		install -Dm755 $bin "$pkgdir"/usr/lib/$pkgname/$bin
-	done
-	paxmark -m "$pkgdir"/usr/lib/$pkgname/chrome
-
+    install -Dm755 headless_shell "$pkgdir"/usr/lib/$pkgname/headless-shell
+	paxmark -m "$pkgdir"/usr/lib/$pkgname/headless-shell
 	install -Dm4755 chrome_sandbox "$pkgdir"/usr/lib/$pkgname/chrome-sandbox
 	install -m644 icudtl.dat "$pkgdir"/usr/lib/$pkgname/icudtl.dat
 
@@ -313,47 +239,12 @@ package() {
 
 	cp -a locales "$pkgdir"/usr/lib/$pkgname/
 
-	# It is important that we name the target "chromium-browser",
-	# xdg-utils expect it; bug #355517.
 	mkdir -p "$pkgdir"/usr/bin
 	cd "$pkgdir"/usr/bin
-	ln -sf /usr/lib/$pkgname/chromium-launcher.sh chromium-browser
-	ln -sf /usr/lib/$pkgname/chromedriver "$pkgdir"/usr/bin/
-
-	install -Dm644 "$srcdir"/chromium.conf \
-		"$pkgdir"/etc/chromium/chromium.conf
-
-	install -Dm644 "$srcdir"/chromium.desktop \
-		"$pkgdir"/usr/share/applications/chromium.desktop
-
-	cd "$builddir"
-	for size in 22 24 48 64 128 256; do
-		install -Dm644 "chrome/app/theme/chromium/product_logo_$size.png" \
-			"$pkgdir/usr/share/icons/hicolor/${size}x${size}/apps/chromium.png"
-	done
-
-	for size in 16 32; do
-		install -Dm644 "chrome/app/theme/default_100_percent/chromium/product_logo_$size.png" \
-			"$pkgdir/usr/share/icons/hicolor/${size}x${size}/apps/chromium.png"
-	done
+	ln -sf /usr/lib/$pkgname/headless-shell headless-shell
 }
 
-chromedriver() {
-	pkgdesc="WebDriver driver for the Chromium Browser"
-	mkdir -p "$subpkgdir"/usr/lib/$pkgname "$subpkgdir"/usr/bin
-	mv "$pkgdir"/usr/lib/$pkgname/chromedriver \
-		"$subpkgdir"/usr/lib/$pkgname/
-	mv "$pkgdir"/usr/bin/chromedriver "$subpkgdir"/usr/bin
-}
-
-sha512sums="ab94f89e614919932d4d960bac8e5450c4d3f26dea4892e6591762bfaeeb4707a090352d4a952bcb55e34fde4950db22a36004788efd26ffb22b28770e9795c4  chromium-68.0.3440.106.tar.xz
-a3bb959c65944ae2fb765725cedcffd743a58bc0c2cd1f1999d15fe79801d00f3474b08b4ed7b48859ed921eb57093d0ad09d90f201d729ed9b8a419a591ed29  pstables-2.8.h
-b9a810416dd7a8ffc3a5ced85ad9acebda1665bd08a57eec7b189698cc5f74d2c3fd69044e20fcb83297a43214b2772a1312b2c6122ea0eb716abacf39524d60  chromium-launcher.sh
-f6d962b9e4c22dd42183df3db5d3202dab33eccecafb1bf63ca678147289581262db1e5e64cbe8f9c212beefb0a6717bb8d311e497f56b55fe95b8bab2db493f  chromium.conf
-e182c998a43d22d1c76a86c561619afd1fca8c2be668265ad5e2f81a3806f7a154272cc027a2f8b370fb69446892c69e5967a4be76082325c14245ee7915234c  chromium.desktop
-2d8237a940ea691bd10b08315429677a587f7ef9692a0cca53bfd066eae82998a6c71f402a8669e9de39f94d7f3280745d1628ea6eac5d76ca7116844d4e0dac  google-api.keys
-05fb6d9434565a7a73f5c18d470ae600bf4afbe15d0e4a7c2770bf2596a0bd2788cdfeb37e0b566fc3d26ff2d0791b70488b2c184e3286cff5a1fa25e17582cd  default-pthread-stacksize.patch
-46e141a932860c6db1f655c8b188b8c41bce0dbb1654c066379fa53063ce6cc3bf8be156bd8e73e103c7d9e956e436732e2f7db0653f9847eb26cbfebc441a10  gn_bootstrap.patch
+sha512sums="05fb6d9434565a7a73f5c18d470ae600bf4afbe15d0e4a7c2770bf2596a0bd2788cdfeb37e0b566fc3d26ff2d0791b70488b2c184e3286cff5a1fa25e17582cd  default-pthread-stacksize.patch
 8fbfd67a0b6bbdf08364e810bd85b4a80dda9af73fefe3aba8010d9b33022d458a785c628515bbda9c743b8a0293d57cfe18fcc5aa2313c845c6fb948c2335f9  last-commit-position.patch
 245a5bf4c0881851482561830d9241ad8b3061d2e2596916c2efbdeaf41b96f5a6181183442b3a33aac53fefb3faf7c327258e051141d778ae6fa5b48b98969c  musl-fixes.patch
 90efbc89151c77f32434364dcbaabaf9d9a207f4a77f147cd51b3fe100832fbfb3a9fb665303a79a3d788e400f4f41890de202ccbb7bd1fc6252e33c6e74e429  musl-fixes-breakpad.patch
