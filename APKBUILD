@@ -1,6 +1,9 @@
+# Contributor: Kenneth Shaw <kenneth.shaw@knq.io>
+# Maintainer: Kenneth Shaw <kenneth.shaw@knq.io>
+chromium=/chromium/src
 pkgname=headless-shell
-pkgver=$VERSION
 pkgrel=0
+pkgver=71.0.3554.1
 pkgdesc="chromium headless-shell"
 url="https://chromium.org"
 arch="x86_64"
@@ -11,12 +14,13 @@ makedepends="$depends_dev
 	alsa-lib-dev
 	bash
 	binutils-gold
-	bison flex
+	bison
+	flex
 	bsd-compat-headers
 	bzip2-dev
 	cairo-dev
-	'clang>6.0'
-	'clang-dev>6.0'
+	clang>6.0
+	clang-dev>6.0
 	cups-dev
 	dbus-glib-dev
 	eudev-dev
@@ -101,8 +105,6 @@ source="
 	chromium-gcc.patch
 	"
 
-builddir="$srcdir"/$pkgname-$pkgver
-
 if [ -n "$DEBUG" ]; then
 	_buildtype=Debug
 	_is_debug=true
@@ -111,16 +113,22 @@ else
 	_is_debug=false
 fi
 
-prepare() {
-	cd "$builddir"
+builddir=$chromium/out/$pkgname-$_buildtype
 
-	local i
-	cd "$builddir"
-	for i in $source; do
-		case $i in
-		*.patch) msg $i; patch -p0 -i "$srcdir"/$i;;
-		esac
-	done
+prepare() {
+	mkdir -p "$builddir"
+
+	cd "$chromium"
+
+	find headless -type f -iname \*.cc -exec \
+		perl -pi -e 's/"HeadlessChrome"/"Chrome"/' {} \;
+
+#	local i
+#	for i in $source; do
+#		case $i in
+#		*.patch) msg $i; patch -p0 -i "$srcdir"/$i;;
+#		esac
+#	done
 
 	# https://groups.google.com/a/chromium.org/d/topic/chromium-packagers/9JX1N2nf4PU/discussion
 	touch chrome/test/data/webui/i18n_process_css_test.html
@@ -129,7 +137,8 @@ prepare() {
 		-i device/usb/BUILD.gn
 
 	mkdir -p third_party/node/linux/node-linux-x64/bin
-	ln -s /usr/bin/node third_party/node/linux/node-linux-x64/bin/
+	rm -f third_party/node/linux/node-linux-x64/bin/node
+	ln -s /usr/bin/node third_party/node/linux/node-linux-x64/bin/node
 
 	# reusable system library settings
 	local use_system="
@@ -167,65 +176,57 @@ prepare() {
 	third_party/libaddressinput/chromium/tools/update-strings.py
 }
 
-_gn_flags() {
-	echo $*
-}
-
 build() {
-	cd "$builddir"
+	cd "$chromium"
 
 	export CC=clang
 	export CXX=clang++
 
 	msg "Configuring build"
-	_c=$(_gn_flags \
-		clang_use_chrome_plugins=false \
-		custom_toolchain=\"//build/toolchain/linux/unbundle:default\" \
-		enable_hangout_services_extension=true \
-		enable_hotwording=false \
-		enable_nacl=false \
-		enable_nacl_nonsfi=false \
-		enable_precompiled_headers=false \
-		fatal_linker_warnings=false \
-		ffmpeg_branding=\"Chrome\" \
-		fieldtrial_testing_like_official_build=true \
-		gold_path=\"/usr/bin/ld.gold\" \
-		google_api_key=\"$_google_api_key\" \
-		google_default_client_id=\"$_google_default_client_id\" \
-		google_default_client_secret=\"$_google_default_client_secret\" \
-		host_toolchain=\"//build/toolchain/linux/unbundle:default\" \
-		icu_use_data_file=true \
-		is_clang=true \
-		is_debug=$_is_debug \
-		linux_use_bundled_binutils=false \
-		proprietary_codecs=true \
-		remove_webcore_debug_symbols=true \
-		symbol_level=0 \
-		treat_warnings_as_errors=false \
-		use_allocator=\"none\" \
-		use_allocator_shim=false \
-		use_cups=true \
-		use_custom_libcxx=false \
-		use_gnome_keyring=false \
-		use_gold=false \
-		use_lld=false \
-		use_pulseaudio=false \
-		use_sysroot=false \
-		use_system_harfbuzz=true \
-	)
+	echo 'import("//build/args/headless.gn")
 
-    # generate configs
+is_debug='$_is_debug'
+
+symbol_level=0
+enable_nacl=false
+use_jumbo_build=true
+remove_webcore_debug_symbols=true
+headless_use_embedded_resources=true
+
+clang_use_chrome_plugins=false
+custom_toolchain="//build/toolchain/linux/unbundle:default"
+gold_path="/usr/bin/ld.gold"
+host_toolchain="//build/toolchain/linux/unbundle:default"
+
+icu_use_data_file=true
+is_clang=true
+linux_use_bundled_binutils=false
+proprietary_codecs=false
+
+treat_warnings_as_errors=false
+use_allocator="none"
+use_allocator_shim=false
+use_custom_libcxx=false
+use_gnome_keyring=false
+use_gold=false
+use_lld=false
+use_pulseaudio=false
+use_sysroot=false
+use_system_harfbuzz=true
+' > "$builddir"/args.gn
+
+	# generate configs
 	AR="ar" CC="$CC" CXX="$CXX" LD="$CXX" NM=/usr/bin/nm \
-		gn gen out/$_buildtype --args="$_c"
+		gn gen out/$pkgname-$_buildtype
 
 	# build
-	ninja -C out/$_buildtype headless_shell chrome_sandbox
+	ninja -C out/$pkgname-$_buildtype headless_shell chrome_sandbox
 }
 
 package() {
-	cd "$builddir"/out/$_buildtype
+	cd "$builddir"
 
-    install -Dm755 headless_shell "$pkgdir"/usr/lib/$pkgname/headless-shell
+	install -Dm755 headless_shell "$pkgdir"/usr/lib/$pkgname/headless-shell
 	paxmark -m "$pkgdir"/usr/lib/$pkgname/headless-shell
 	install -Dm4755 chrome_sandbox "$pkgdir"/usr/lib/$pkgname/chrome-sandbox
 	install -m644 icudtl.dat "$pkgdir"/usr/lib/$pkgname/icudtl.dat
@@ -245,7 +246,6 @@ package() {
 }
 
 sha512sums="05fb6d9434565a7a73f5c18d470ae600bf4afbe15d0e4a7c2770bf2596a0bd2788cdfeb37e0b566fc3d26ff2d0791b70488b2c184e3286cff5a1fa25e17582cd  default-pthread-stacksize.patch
-8fbfd67a0b6bbdf08364e810bd85b4a80dda9af73fefe3aba8010d9b33022d458a785c628515bbda9c743b8a0293d57cfe18fcc5aa2313c845c6fb948c2335f9  last-commit-position.patch
 245a5bf4c0881851482561830d9241ad8b3061d2e2596916c2efbdeaf41b96f5a6181183442b3a33aac53fefb3faf7c327258e051141d778ae6fa5b48b98969c  musl-fixes.patch
 90efbc89151c77f32434364dcbaabaf9d9a207f4a77f147cd51b3fe100832fbfb3a9fb665303a79a3d788e400f4f41890de202ccbb7bd1fc6252e33c6e74e429  musl-fixes-breakpad.patch
 507a8db2317f1f6ec18dec6cb5894b716e9b2542b58887bab9319bc6d4c66fe4a4d09b200ca8e3f11b32e380b282442a27e7a1b358d3c25eef0fa7655e9dc134  musl-hacks.patch
