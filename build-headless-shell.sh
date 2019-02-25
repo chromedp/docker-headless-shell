@@ -15,9 +15,6 @@ if [ "$((`date +%s` - $LAST))" -gt 86400 ]; then
   UPDATE=1
 fi
 
-# files in the chromium source that contain the HeadlessChrome string
-FILES="headless/lib/browser/headless_url_request_context_getter.cc headless/public/headless_browser.cc"
-
 set -e
 
 DEPOT_TOOLS_DIR=$(dirname $(which gclient))
@@ -52,10 +49,13 @@ fi
 
 pushd $TREE/chromium/src &> /dev/null
 
+# files in headless that contain the HeadlessChrome user-agent string
+USERAGENT_FILES=$(find ./headless/ -type f -iname \*.cc -print0|xargs -r0 egrep -Hi '"(Headless)?Chrome"'|awk -F: '{print $1}'|sort|uniq)
+
 # update chromium source tree
 if [ "$UPDATE" -eq "1" ]; then
   # checkout changed files (avoid reset --hard)
-  for f in $FILES; do
+  for f in $USERAGENT_FILES; do
     if [ -f "$f" ]; then
       git checkout $f
     fi
@@ -89,7 +89,7 @@ if [ "$UPDATE" -eq "1" ]; then
   gclient sync
 
   # change user-agent
-  for f in $FILES; do
+  for f in $USERAGENT_FILES; do
     if [ -f "$f" ]; then
       perl -pi -e 's/"HeadlessChrome"/"Chrome"/' $f
     fi
@@ -125,7 +125,7 @@ cp -a $PROJECT/swiftshader/*.so $TMP/headless-shell/swiftshader
 
 popd &> /dev/null
 
-# rename chrome_sandbox and strip
+# rename and strip
 pushd $TMP/headless-shell &> /dev/null
 mv chrome_sandbox chrome-sandbox
 mv headless_shell headless-shell
