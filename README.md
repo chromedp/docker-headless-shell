@@ -23,7 +23,7 @@ You can use this Docker image in the usual way:
 $ docker pull chromedp/headless-shell:latest
 
 # pull specific tagged version of headless-shell
-$ docker pull chromedp/headless-shell:69.0.3481.1
+$ docker pull chromedp/headless-shell:74.0.3717.1
 
 # run
 $ docker run -d -p 9222:9222 --rm --name headless-shell chromedp/headless-shell
@@ -57,14 +57,14 @@ tree is up-to-date.
 ### Building
 
 After you are able to successfully build `headless-shell` directly from the
-Chromium source tree, you can simply run [`build.sh`](build.sh):
+Chromium source tree, you can simply run [`docker-build.sh`](docker-build.sh):
 
 ```sh
 # build headless-shell
-$ ./build-headless-shell.sh /path/to/chromium/src 69.0.3481.1
+$ ./build-headless-shell.sh /path/to/chromium/src 74.0.3717.1
 
 # build docker image (uses $PWD/out/headless-shell-$VER.tar.bz2)
-$ ./build.sh 69.0.3481.1
+$ ./docker-build.sh 74.0.3717.1
 ```
 
 [headless-shell]: https://github.com/chromedp/docker-headless-shell
