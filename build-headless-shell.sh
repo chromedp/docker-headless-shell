@@ -120,7 +120,7 @@ echo $VER > $PROJECT/.stamp
 
 # copy files
 mkdir -p $TMP/headless-shell/swiftshader
-cp -a $PROJECT/{headless_shell,libosmesa.so,chrome_sandbox,.stamp} $TMP/headless-shell
+cp -a $PROJECT/{headless_shell,chrome_sandbox,.stamp} $TMP/headless-shell
 cp -a $PROJECT/swiftshader/*.so $TMP/headless-shell/swiftshader
 
 popd &> /dev/null
@@ -129,8 +129,8 @@ popd &> /dev/null
 pushd $TMP/headless-shell &> /dev/null
 mv chrome_sandbox chrome-sandbox
 mv headless_shell headless-shell
-strip headless-shell chrome-sandbox *.so swiftshader/*.so
-chmod -x *.so swiftshader/*.so
+strip headless-shell chrome-sandbox swiftshader/*.so
+chmod -x swiftshader/*.so
 popd &> /dev/null
 
 # remove previous
