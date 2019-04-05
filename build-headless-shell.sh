@@ -73,6 +73,8 @@ if [ -z "$VER" ]; then
   VER=$(git tag -l|grep -E '^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$'|sort -r -V|head -1)
 fi
 
+mkdir -p $SRC/out
+
 TMP=$(mktemp -d -p /tmp headless-shell-$VER.XXXXX)
 OUT=$SRC/out/headless-shell-$VER.tar.bz2
 

@@ -5,6 +5,12 @@ set -e
 SRC=$(realpath $(cd -P "$( dirname "${BASH_SOURCE[0]}" )" && pwd ))
 
 VER=$1
+
+if [ ! -d $SRC/out ]; then
+  echo "$SRC/out does not exist!"
+  exit 1
+fi
+
 if [ -z "$1" ]; then
   pushd $SRC/out &> /dev/null
 
