@@ -88,7 +88,7 @@ if [ "$UPDATE" -eq "1" ]; then
   # checkout and sync third-party dependencies
   git checkout $VER
 
-  gclient sync
+  gclient sync -D
 
   # change user-agent
   for f in $USERAGENT_FILES; do
