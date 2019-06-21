@@ -10,12 +10,12 @@ export CHROMIUM_BUILDTOOLS_PATH=/media/src/chromium/src/buildtools
 pushd $SRC &> /dev/null
 
 echo "------------------------------------------------------------"
-echo ">>>>> STARTING BUILD $(date) <<<<<"
+echo ">>>>> STARTING BUILD ($(date)) <<<<<"
 rm -f .last
 ./build-headless-shell.sh
-echo ">>>>> ENDED BUILD $(date) <<<<<"
+echo ">>>>> ENDED BUILD ($(date)) <<<<<"
 
-echo ">>>>> STARTING DOCKER $(date) <<<<<"
+echo ">>>>> STARTING DOCKER ($(date)) <<<<<"
 docker pull blitznote/debase:18.04
 ./build-docker.sh
 pushd $SRC/out &> /dev/null
@@ -23,15 +23,19 @@ VER=$(ls *.bz2|sort -r -V|head -1|sed -e 's/^headless-shell-//' -e 's/\.tar\.bz2
 popd &> /dev/null
 docker push chromedp/headless-shell:$VER
 docker push chromedp/headless-shell:latest
-docker rmi $(docker images|egrep '^chromedp/headless-shell\s+'|grep -v latest|grep -v $VER|awk '{print $3}')
-echo ">>>>> ENDED DOCKER $(date) <<<<<"
 
-echo ">>>>> PUBLISH SLACK $(date) <<<<<"
+IMAGES=$(docker images|egrep '^chromedp/headless-shell\s+'|grep -v latest|grep -v $VER|awk '{print $3}')
+if [ ! -z "$IMAGES" ]; then
+  docker rmi $IMAGES
+fi
+echo ">>>>> ENDED DOCKER ($(date)) <<<<<"
+
+echo ">>>>> PUBLISH SLACK ($(date)) <<<<<"
 curl \
   -F file=@./out/headless-shell-$VER.tar.bz2 \
   -F channels=CGEV595RP \
   -H "Authorization: Bearer $(cat $HOME/.slack-token)" \
   https://slack.com/api/files.upload
-echo ">>>>> END SLACK $(date) <<<<<"
+echo -e "\n>>>>> END SLACK ($(date)) <<<<<"
 
 popd &> /dev/null

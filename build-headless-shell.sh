@@ -15,6 +15,9 @@ if [ "$((`date +%s` - $LAST))" -gt 86400 ]; then
   UPDATE=1
 fi
 
+echo "UPDATE: $UPDATE"
+echo "LAST: $LAST"
+
 set -e
 
 DEPOT_TOOLS_DIR=$(dirname $(which gclient))
@@ -25,6 +28,7 @@ fi
 
 # update to latest depot_tools
 if [ "$UPDATE" -eq "1" ]; then
+  echo "UPDATING $DEPOT_TOOLS_DIR ($(date))"
   pushd $DEPOT_TOOLS_DIR &> /dev/null
   git reset --hard
   git pull
@@ -36,12 +40,14 @@ mkdir -p $TREE/chromium
 
 # retrieve chromium source tree
 if [ ! -d $TREE/chromium/src ]; then
+  echo "RETRIEVING $TREE/chromium/src ($(date))"
   # retrieve
   pushd $TREE/chromium &> /dev/null
   fetch --nohooks chromium
   popd &> /dev/null
 
   # run hooks
+  echo "RUNNING GCLIENT HOOKS $TREE/chromium/src ($(date))"
   pushd $TREE/chromium/src &> /dev/null
   gclient runhooks
   popd &> /dev/null
@@ -54,6 +60,7 @@ USERAGENT_FILES=$(find ./headless/ -type f -iname \*.cc -print0|xargs -r0 egrep 
 
 # update chromium source tree
 if [ "$UPDATE" -eq "1" ]; then
+  echo "RESETTING FILES $USERAGENT_FILES ($(date))"
   # checkout changed files (avoid reset --hard)
   for f in $USERAGENT_FILES; do
     if [ -f "$f" ]; then
@@ -62,10 +69,13 @@ if [ "$UPDATE" -eq "1" ]; then
   done
 
   # update
+  echo "CHANGING TO master ($(date))"
   git checkout master
+  echo "REBASING TREE ($(date))"
   git rebase-update
 
   date +%s > $SRC/.last
+  echo "NEW LAST: $(cat $SRC/.last) ($(date))"
 fi
 
 # determine latest version
@@ -86,8 +96,10 @@ PROJECT=out/headless-shell
 
 if [ "$UPDATE" -eq "1" ]; then
   # checkout and sync third-party dependencies
+  echo "CHECKING OUT $VER ($(date))"
   git checkout $VER
 
+  echo "GCLIENT SYNC ($(date))"
   gclient sync -D
 
   # change user-agent
@@ -115,7 +127,9 @@ if [ "$UPDATE" -eq "1" ]; then
 fi
 
 # build
+echo "STARTING NINJA ($(date))"
 ninja -C $PROJECT headless_shell chrome_sandbox
+echo "COMPLETED NINJA ($(date))"
 
 # build stamp
 echo $VER > $PROJECT/.stamp
