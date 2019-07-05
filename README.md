@@ -61,7 +61,7 @@ tree is up-to-date.
 ### Building
 
 After you are able to successfully build `headless-shell` directly from the
-Chromium source tree, you can simply run [`docker-build.sh`](docker-build.sh):
+Chromium source tree, you can simply run [`build-docker.sh`](build-docker.sh):
 
 ```sh
 # build headless-shell
