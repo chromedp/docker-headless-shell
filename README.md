@@ -30,6 +30,10 @@ $ docker run -d -p 9222:9222 --rm --name headless-shell chromedp/headless-shell
 
 # if headless-shell is crashing with a BUS_ADRERR error, pass a larger shm-size:
 $ docker run -d -p 9222:9222 --rm --name headless-shell --shm-size 2G chromedp/headless-shell
+
+# run as unprivileged user
+# get seccomp profile from https://raw.githubusercontent.com/jfrazelle/dotfiles/master/etc/docker/seccomp/chrome.json
+$ docker run -d -p 9222:9222 --user nobody --security-opt seccomp=chrome.json --entrypoint '/headless-shell/headless-shell' chromedp/headless-shell --remote-debugging-address=0.0.0.0 --remote-debugging-port=9222 --disable-gpu --headless
 ```
 
 ## Building and Packaging
