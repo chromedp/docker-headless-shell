@@ -16,18 +16,50 @@ rm -f .last
 echo ">>>>> ENDED BUILD ($(date)) <<<<<"
 
 echo ">>>>> STARTING DOCKER ($(date)) <<<<<"
-docker pull blitznote/debase:18.04
-./build-docker.sh
+
+# read built version
 pushd $SRC/out &> /dev/null
 VER=$(ls *.bz2|sort -r -V|head -1|sed -e 's/^headless-shell-//' -e 's/\.tar\.bz2$//')
-popd &> /dev/null
-docker push chromedp/headless-shell:$VER
-docker push chromedp/headless-shell:latest
 
-IMAGES=$(docker images|egrep '^chromedp/headless-shell\s+'|grep -v latest|grep -v $VER|awk '{print $3}')
+# remove old builds
+DIRS=$(ls -d [0-9]*|egrep '^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$'|grep -v $VER || true)
+if [ ! -z "$DIRS" ]; then
+  rm -rf $DIRS
+fi
+ARCHIVES=$(ls headless-shell-*.tar.bz2|grep -v $VER || true)
+if [ ! -z "$ARCHIVES" ]; then
+  rm -rf $ARCHIVES
+fi
+popd &> /dev/null
+
+# remove containers
+CONTAINERS=$(docker container ls \
+  --filter=ancestor=chromedp/headless-shell \
+  --filter=status=exited \
+  --filter=status=dead \
+  --filter=status=created \
+  --quiet
+)
+if [ ! -z "$CONTAINERS" ]; then
+  docker container rm --force $CONTAINERS
+fi
+
+# remove images
+IMAGES=$(docker images \
+  --filter=reference=chromedp/headless-shell \
+  |sed 1d |grep -v latest |grep -v $VER \
+  |awk '{print $3}'
+)
 if [ ! -z "$IMAGES" ]; then
   docker rmi $IMAGES
 fi
+
+# build docker images
+docker pull blitznote/debase:18.04
+./build-docker.sh
+docker push chromedp/headless-shell:$VER
+docker push chromedp/headless-shell:latest
+
 echo ">>>>> ENDED DOCKER ($(date)) <<<<<"
 
 echo ">>>>> PUBLISH SLACK ($(date)) <<<<<"
