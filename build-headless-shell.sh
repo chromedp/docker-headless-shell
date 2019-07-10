@@ -55,17 +55,13 @@ fi
 
 pushd $TREE/chromium/src &> /dev/null
 
-# files in headless that contain the HeadlessChrome user-agent string
-USERAGENT_FILES=$(find ./headless/ -type f -iname \*.cc -print0|xargs -r0 egrep -Hi '"(Headless)?Chrome"'|awk -F: '{print $1}'|sort|uniq)
-
 # update chromium source tree
 if [ "$UPDATE" -eq "1" ]; then
+  # files in headless that contain the HeadlessChrome user-agent string
+  USERAGENT_FILES=$(find ./headless/ -type f -iname \*.cc -print0|xargs -r0 egrep -Hi '"(Headless)?Chrome"'|awk -F: '{print $1}'|sort|uniq)
   echo "RESETTING FILES $USERAGENT_FILES ($(date))"
-  # checkout changed files (avoid reset --hard)
   for f in $USERAGENT_FILES; do
-    if [ -f "$f" ]; then
-      git checkout $f
-    fi
+    git checkout $f
   done
 
   # update
@@ -94,19 +90,35 @@ echo "OUT: $OUT"
 
 PROJECT=out/headless-shell
 
-if [ "$UPDATE" -eq "1" ]; then
+SYNC=$UPDATE
+if [ "$VER" != "$(git name-rev --tags --name-only $(git rev-parse HEAD))" ]; then
+  SYNC=1
+fi
+
+if [ "$SYNC" -eq "1" ]; then
+  # files in headless that contain the HeadlessChrome user-agent string
+  USERAGENT_FILES=$(find ./headless/ -type f -iname \*.cc -print0|xargs -r0 egrep -Hi '"(Headless)?Chrome"'|awk -F: '{print $1}'|sort|uniq)
+  echo "RESETTING FILES $USERAGENT_FILES ($(date))"
+  for f in $USERAGENT_FILES; do
+    git checkout $f
+  done
+
   # checkout and sync third-party dependencies
   echo "CHECKING OUT $VER ($(date))"
   git checkout $VER
 
-  echo "GCLIENT SYNC ($(date))"
-  gclient sync -D
+  echo "GCLIENT SYNC $VER ($(date))"
+  gclient sync \
+    --with_branch_heads \
+    --with_tags \
+    --delete_unversioned_trees \
+    --reset
 
   # change user-agent
+  # files in headless that contain the HeadlessChrome user-agent string
+  USERAGENT_FILES=$(find ./headless/ -type f -iname \*.cc -print0|xargs -r0 egrep -Hi '"(Headless)?Chrome"'|awk -F: '{print $1}'|sort|uniq)
   for f in $USERAGENT_FILES; do
-    if [ -f "$f" ]; then
-      perl -pi -e 's/"HeadlessChrome"/"Chrome"/' $f
-    fi
+    perl -pi -e 's/"HeadlessChrome"/"Chrome"/' $f
   done
 
   # ensure build directory exists
@@ -127,9 +139,9 @@ if [ "$UPDATE" -eq "1" ]; then
 fi
 
 # build
-echo "STARTING NINJA ($(date))"
+echo "STARTING NINJA $VER ($(date))"
 ninja -C $PROJECT headless_shell chrome_sandbox
-echo "COMPLETED NINJA ($(date))"
+echo "COMPLETED NINJA $VER ($(date))"
 
 # build stamp
 echo $VER > $PROJECT/.stamp

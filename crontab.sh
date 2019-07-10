@@ -5,7 +5,7 @@ set -e
 SRC=$(realpath $(cd -P "$( dirname "${BASH_SOURCE[0]}" )" && pwd ))
 
 TREE=/media/src
-CHANNELS="stable"
+CHANNELS="stable beta dev"
 
 export PATH=$PATH:$HOME/src/misc/chrome/depot_tools
 export CHROMIUM_BUILDTOOLS_PATH=/media/src/chromium/src/buildtools
@@ -20,15 +20,19 @@ mkdir -p $SRC/out
 pushd $SRC &> /dev/null
 
 echo "------------------------------------------------------------"
+echo ">>>>> STARTING ($(date)) <<<<<"
 
+# retrieve channel versions
 declare -A VERSIONS
 for CHANNEL in $CHANNELS; do
   VER=$($TREE/chromium/src/tools/omahaproxy.py --os=linux --channel=$CHANNEL)
   VERSIONS[$CHANNEL]=$VER
-  echo "$(tr '[:lower:]' '[:upper:]' <<< "$CHANNEL"): $VER"
+  echo "CHANNEL $(tr '[:lower:]' '[:upper:]' <<< "$CHANNEL"): $VER"
 done
 
 echo ">>>>> CLEAN UP ($(date)) <<<<<"
+rm -f .last
+
 # remove containers
 CONTAINERS=$(docker container ls \
   --filter=ancestor=chromedp/headless-shell \
@@ -68,11 +72,11 @@ echo ">>>>> ENDED CLEAN UP ($(date)) <<<<<"
 for CHANNEL in $CHANNELS; do
   VER=${VERSIONS[$CHANNEL]}
   if [ -f "$SRC/out/headless-shell-$VER.tar.bz2" ]; then
+    echo ">>>>> SKIPPPING BUILD FOR CHANNEL $CHANNEL $VER <<<<<"
     continue;
   fi
 
   echo ">>>>> STARTING BUILD FOR CHANNEL $CHANNEL $VER ($(date)) <<<<<"
-  rm -f .last
   ./build-headless-shell.sh $TREE $VER
   echo ">>>>> ENDED BUILD FOR $CHANNEL $VER ($(date)) <<<<<"
 done
@@ -113,3 +117,5 @@ if [ ! -f $STABLE.published ]; then
 fi
 
 popd &> /dev/null
+
+echo ">>>>> DONE ($(date)) <<<<<"
