@@ -51,7 +51,7 @@ IMAGES=$(docker images \
   |awk '{print $3}'
 )
 if [ ! -z "$IMAGES" ]; then
-  docker rmi $IMAGES
+  docker rmi --force $IMAGES
 fi
 
 # build docker images
