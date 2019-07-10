@@ -26,6 +26,5 @@ mkdir -p  $SRC/out/$VER
 tar -jxf $SRC/out/headless-shell-$VER.tar.bz2 -C $SRC/out/$VER/
 
 docker build --build-arg VER=$VER -t chromedp/headless-shell:$VER .
-docker tag chromedp/headless-shell:$VER chromedp/headless-shell:latest
 
 popd &> /dev/null
