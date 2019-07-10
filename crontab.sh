@@ -27,7 +27,7 @@ declare -A VERSIONS
 for CHANNEL in $CHANNELS; do
   VER=$($TREE/chromium/src/tools/omahaproxy.py --os=linux --channel=$CHANNEL)
   VERSIONS[$CHANNEL]=$VER
-  echo "CHANNEL $(tr '[:lower:]' '[:upper:]' <<< "$CHANNEL"): $VER"
+  echo ">>>>> CHANNEL $(tr '[:lower:]' '[:upper:]' <<< "$CHANNEL"): $VER <<<<<"
 done
 
 echo ">>>>> CLEAN UP ($(date)) <<<<<"
@@ -42,26 +42,30 @@ CONTAINERS=$(docker container ls \
   --quiet
 )
 if [ ! -z "$CONTAINERS" ]; then
+  echo ">>>>> REMOVING DOCKER CONTAINERS ($(date)) <<<<<"
   docker container rm --force $CONTAINERS
 fi
 
 # remove images
 IMAGES=$(docker images \
   --filter=reference=chromedp/headless-shell \
-  |sed 1d |egrep -v "($(join_by '|' "${VERSIONS[@]}"))" \
+  |sed 1d \
+  |egrep -v "($(join_by '|' "${!VERSIONS[@]}"))" \
+  |egrep -v "(latest|$(join_by '|' "${VERSIONS[@]}"))" \
   |awk '{print $3}'
 )
 if [ ! -z "$IMAGES" ]; then
+  echo ">>>>> REMOVING DOCKER IMAGES ($(date)) <<<<<"
   docker rmi --force $IMAGES
 fi
 
 pushd $SRC/out &> /dev/null
 # remove old builds
-DIRS=$(find . -maxdepth 1 -type d -printf "%f\n"|egrep '^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$'|egrep -v "($(join_by '|' "${VERSIONS[@]}"))"||true)
+DIRS=$(find . -maxdepth 1 -type d -printf "%f\n"|egrep '^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$'|egrep -v "($(join_by '|' "${VERSIONS[@]}"))"||:)
 if [ ! -z "$DIRS" ]; then
   rm -rf $DIRS
 fi
-ARCHIVES=$(find . -maxdepth 1 -type f -printf "%f\n"|egrep '^headless-shell-[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+\.tar\.bz2$'|egrep -v "($(join_by '|' "${VERSIONS[@]}"))"||true)
+ARCHIVES=$(find . -maxdepth 1 -type f -printf "%f\n"|egrep '^headless-shell-[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+\.tar\.bz2'|egrep -v "($(join_by '|' "${VERSIONS[@]}"))"||:)
 if [ ! -z "$ARCHIVES" ]; then
   rm -rf $ARCHIVES
 fi
@@ -81,39 +85,75 @@ for CHANNEL in $CHANNELS; do
   echo ">>>>> ENDED BUILD FOR $CHANNEL $VER ($(date)) <<<<<"
 done
 
-echo ">>>>> STARTING DOCKER ($(date)) <<<<<"
-# update base image
+echo ">>>>> STARTING DOCKER PULL ($(date)) <<<<<"
 docker pull blitznote/debase:18.04
+echo ">>>>> ENDED DOCKER PULL ($(date)) <<<<<"
 
 # build docker images
 for CHANNEL in $CHANNELS; do
+  VER=${VERSIONS[$CHANNEL]}
+
+  if [ -f $SRC/out/headless-shell-$VER.tar.bz2.docker_build_done ]; then
+    echo ">>>>> SKIPPPING DOCKER BUILD FOR CHANNEL $CHANNEL $VER <<<<<"
+    continue
+  fi
+
   rm -rf $SRC/out/$VER
   mkdir -p  $SRC/out/$VER
 
   tar -jxf $SRC/out/headless-shell-$VER.tar.bz2 -C $SRC/out/$VER/
 
-  docker build --build-arg VER=$VER -t chromedp/headless-shell:$VER .
-  docker push chromedp/headless-shell:$VER
+  echo ">>>>> STARTING DOCKER BUILD FOR CHANNEL $CHANNEL $VER ($(date)) <<<<<"
+  docker build \
+    --build-arg VER=$VER \
+    --tag chromedp/headless-shell:$VER \
+    --tag chromedp/headless-shell:$CHANNEL \
+    --quiet .
 
-  docker tag chromedp/headless-shell:$VER chromedp/headless-shell:$CHANNEL
-  docker push chromedp/headless-shell:$CHANNEL
   if [ "$CHANNEL" = "stable" ]; then
     docker tag chromedp/headless-shell:$VER chromedp/headless-shell:latest
-    docker push chromedp/headless-shell:latest
   fi
+
+  touch $SRC/out/headless-shell-$VER.tar.bz2.docker_build_done
+
+  echo ">>>>> ENDED DOCKER BUILD FOR CHANNEL $CHANNEL $VER ($(date)) <<<<<"
 done
-echo ">>>>> ENDED DOCKER ($(date)) <<<<<"
+
+for CHANNEL in $CHANNELS; do
+  VER=${VERSIONS[$CHANNEL]}
+
+  if [ -f $SRC/out/headless-shell-$VER.tar.bz2.docker_push_done ]; then
+    echo ">>>>> SKIPPPING DOCKER BUILD FOR CHANNEL $CHANNEL $VER <<<<<"
+    continue
+  fi
+
+  TAGS=($VER)
+  TAGS+=($CHANNEL)
+  if [ "$CHANNEL" = "stable" ]; then
+    TAGS+=(latest)
+  fi
+
+  echo ">>>>> STARTING DOCKER PUSH FOR CHANNEL $CHANNEL $VER ($(date)) <<<<<"
+  for TAG in ${TAGS[@]}; do
+    docker push chromedp/headless-shell:$TAG
+  done
+
+  touch $SRC/out/headless-shell-$VER.tar.bz2.docker_push_done
+  echo ">>>>> ENDED DOCKER PUSH FOR CHANNEL $CHANNEL $VER ($(date)) <<<<<"
+done
 
 STABLE=$SRC/out/headless-shell-${VERSIONS[stable]}.tar.bz2
-if [ ! -f $STABLE.published ]; then
+if [ ! -f $STABLE.slack_done ]; then
   echo ">>>>> PUBLISH SLACK ($(date)) <<<<<"
   curl \
     -F file=@$STABLE \
     -F channels=CGEV595RP \
     -H "Authorization: Bearer $(cat $HOME/.slack-token)" \
     https://slack.com/api/files.upload
-  touch $STABLE.published
+  touch $STABLE.slack_done
   echo -e "\n>>>>> END SLACK ($(date)) <<<<<"
+else
+  echo ">>>>> SKIPPING PUBLISH SLACK $STABLE <<<<<"
 fi
 
 popd &> /dev/null
