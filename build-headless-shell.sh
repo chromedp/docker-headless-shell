@@ -2,8 +2,13 @@
 
 TREE=${1:-/media/src}
 VER=$2
+BUILDATTEMPTS=$3
 
 SRC=$(realpath $(cd -P "$( dirname "${BASH_SOURCE[0]}" )" && pwd ))
+
+if [ -z "$BUILDATTEMPTS" ]; then
+  BUILDATTEMPTS=1
+fi
 
 # determine update state
 UPDATE=0
@@ -138,10 +143,18 @@ if [ "$SYNC" -eq "1" ]; then
   gn gen $PROJECT
 fi
 
-# build
-echo "STARTING NINJA $VER ($(date))"
-ninja -C $PROJECT headless_shell chrome_sandbox
-echo "COMPLETED NINJA $VER ($(date))"
+# build loop
+for i in $(seq 1 $BUILDATTEMPTS); do
+  echo "STARTING NINJA BUILD ATTEMPT $i FOR $VER ($(date))"
+  RET=0
+  ninja -C $PROJECT headless_shell chrome_sandbox || RET=$?
+  if [ $RET -eq 0 ]; then
+    echo "COMPLETED NINJA BUILD ATTEMPT $i FOR $VER ($(date))"
+    break
+  else
+    echo "NINJA BUILD ATTEMPT $i FOR $VER FAILED ($(date))"
+  fi
+done
 
 # build stamp
 echo $VER > $PROJECT/.stamp

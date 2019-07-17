@@ -6,6 +6,7 @@ SRC=$(realpath $(cd -P "$( dirname "${BASH_SOURCE[0]}" )" && pwd ))
 
 TREE=/media/src
 CHANNELS="stable beta dev"
+BUILDATTEMPTS=5
 
 export PATH=$PATH:$HOME/src/misc/chrome/depot_tools
 export CHROMIUM_BUILDTOOLS_PATH=/media/src/chromium/src/buildtools
@@ -81,7 +82,7 @@ for CHANNEL in $CHANNELS; do
   fi
 
   echo ">>>>> STARTING BUILD FOR CHANNEL $CHANNEL $VER ($(date)) <<<<<"
-  ./build-headless-shell.sh $TREE $VER
+  ./build-headless-shell.sh $TREE $VER $BUILDATTEMPTS
   echo ">>>>> ENDED BUILD FOR $CHANNEL $VER ($(date)) <<<<<"
 done
 
