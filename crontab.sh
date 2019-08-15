@@ -154,16 +154,16 @@ if [ ! -f $BINARY ]; then
 else
   if [ -f $BINARY.slack_done ]; then
     echo ">>>>> SKIPPING PUBLISH SLACK $BINARY <<<<<"
-    break
+  else
+    echo ">>>>> PUBLISH SLACK ($(date)) <<<<<"
+    curl \
+      -F file=@$BINARY \
+      -F channels=CGEV595RP \
+      -H "Authorization: Bearer $(cat $HOME/.slack-token)" \
+      https://slack.com/api/files.upload
+    touch $BINARY.slack_done
+    echo -e "\n>>>>> END SLACK ($(date)) <<<<<"
   fi
-  echo ">>>>> PUBLISH SLACK ($(date)) <<<<<"
-  curl \
-    -F file=@$BINARY \
-    -F channels=CGEV595RP \
-    -H "Authorization: Bearer $(cat $HOME/.slack-token)" \
-    https://slack.com/api/files.upload
-  touch $BINARY.slack_done
-  echo -e "\n>>>>> END SLACK ($(date)) <<<<<"
 fi
 
 popd &> /dev/null
