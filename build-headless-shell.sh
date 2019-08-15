@@ -7,7 +7,7 @@ BUILDATTEMPTS=$3
 SRC=$(realpath $(cd -P "$( dirname "${BASH_SOURCE[0]}" )" && pwd ))
 
 if [ -z "$BUILDATTEMPTS" ]; then
-  BUILDATTEMPTS=1
+  BUILDATTEMPTS=3
 fi
 
 # determine update state
@@ -144,17 +144,21 @@ if [ "$SYNC" -eq "1" ]; then
 fi
 
 # build loop
+RET=1
 for i in $(seq 1 $BUILDATTEMPTS); do
+  RET=1
   echo "STARTING NINJA BUILD ATTEMPT $i FOR $VER ($(date))"
-  RET=0
-  ninja -C $PROJECT headless_shell chrome_sandbox || RET=$?
+  ninja -C $PROJECT headless_shell chrome_sandbox && RET=$?
   if [ $RET -eq 0 ]; then
     echo "COMPLETED NINJA BUILD ATTEMPT $i FOR $VER ($(date))"
     break
-  else
-    echo "NINJA BUILD ATTEMPT $i FOR $VER FAILED ($(date))"
   fi
+  echo "NINJA BUILD ATTEMPT $i FOR $VER FAILED ($(date))"
 done
+if [ $RET -ne 0 ]; then
+  echo "ERROR: COULD NOT COMPLETE NINJA BUILD FOR $VER ($(date))"
+  exit 1
+fi
 
 # build stamp
 echo $VER > $PROJECT/.stamp
@@ -166,12 +170,28 @@ cp -a $PROJECT/swiftshader/*.so $TMP/headless-shell/swiftshader
 
 popd &> /dev/null
 
-# rename and strip
 pushd $TMP/headless-shell &> /dev/null
+
+# rename and strip
 mv chrome_sandbox chrome-sandbox
 mv headless_shell headless-shell
 strip headless-shell chrome-sandbox swiftshader/*.so
 chmod -x swiftshader/*.so
+
+# verify headless-shell runs and reports correct version
+./headless-shell --remote-debugging-port=5000 &> /dev/null & PID=$!
+sleep 1
+BROWSER=$(curl --silent --connect-timeout 5 http://localhost:5000/json/version |jq -r '.Browser')
+kill -s SIGTERM $PID
+set +e
+wait $PID 2>/dev/null
+set -e
+if [ "$BROWSER" != "Chrome/$VER" ]; then
+  echo "ERROR: HEADLESS-SHELL REPORTED VERSION '$BROWSER', NOT 'Chrome/$VER'!"
+  exit 1
+else
+  echo "HEADLESS SHELL REPORTED VERSION '$BROWSER'"
+fi
 popd &> /dev/null
 
 # remove previous

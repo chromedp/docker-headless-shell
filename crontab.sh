@@ -34,7 +34,7 @@ done
 echo ">>>>> CLEAN UP ($(date)) <<<<<"
 rm -f .last
 
-# remove containers
+# remove docker containers
 CONTAINERS=$(docker container ls \
   --filter=ancestor=chromedp/headless-shell \
   --filter=status=exited \
@@ -44,10 +44,10 @@ CONTAINERS=$(docker container ls \
 )
 if [ ! -z "$CONTAINERS" ]; then
   echo ">>>>> REMOVING DOCKER CONTAINERS ($(date)) <<<<<"
-  docker container rm --force $CONTAINERS
+  (set -ev; docker container rm --force $CONTAINERS)
 fi
 
-# remove images
+# remove docker images
 IMAGES=$(docker images \
   --filter=reference=chromedp/headless-shell \
   |sed 1d \
@@ -57,104 +57,109 @@ IMAGES=$(docker images \
 )
 if [ ! -z "$IMAGES" ]; then
   echo ">>>>> REMOVING DOCKER IMAGES ($(date)) <<<<<"
-  docker rmi --force $IMAGES
+  (set -ev; docker rmi --force $IMAGES)
 fi
 
+# cleanup old directories and archives
 pushd $SRC/out &> /dev/null
-# remove old builds
 DIRS=$(find . -maxdepth 1 -type d -printf "%f\n"|egrep '^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$'|egrep -v "($(join_by '|' "${VERSIONS[@]}"))"||:)
 if [ ! -z "$DIRS" ]; then
-  rm -rf $DIRS
+  (set -ev; rm -rf $DIRS)
 fi
 ARCHIVES=$(find . -maxdepth 1 -type f -printf "%f\n"|egrep '^headless-shell-[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+\.tar\.bz2'|egrep -v "($(join_by '|' "${VERSIONS[@]}"))"||:)
 if [ ! -z "$ARCHIVES" ]; then
-  rm -rf $ARCHIVES
+  (set -ev; rm -rf $ARCHIVES)
 fi
 popd &> /dev/null
 
 echo ">>>>> ENDED CLEAN UP ($(date)) <<<<<"
 
+# attempt to build the channels
 for CHANNEL in $CHANNELS; do
   VER=${VERSIONS[$CHANNEL]}
-  if [ -f "$SRC/out/headless-shell-$VER.tar.bz2" ]; then
+  BINARY=$SRC/out/headless-shell-$VER.tar.bz2
+  if [ -f $BINARY ]; then
     echo ">>>>> SKIPPPING BUILD FOR CHANNEL $CHANNEL $VER <<<<<"
     continue;
   fi
-
   echo ">>>>> STARTING BUILD FOR CHANNEL $CHANNEL $VER ($(date)) <<<<<"
-  ./build-headless-shell.sh $TREE $VER $BUILDATTEMPTS
+  RET=1
+  ./build-headless-shell.sh $TREE $VER $BUILDATTEMPTS && RET=$?
+  if [ $RET -ne 0 ]; then
+    echo ">>>>> COULD NOT BUILD $CHANNEL $VER ($(date)) <<<<<"
+    rm -f $BINARY
+  fi
   echo ">>>>> ENDED BUILD FOR $CHANNEL $VER ($(date)) <<<<<"
 done
 
+# update base docker image
 echo ">>>>> STARTING DOCKER PULL ($(date)) <<<<<"
-docker pull blitznote/debase:18.04
+(set -ev; docker pull blitznote/debase:18.04)
 echo ">>>>> ENDED DOCKER PULL ($(date)) <<<<<"
 
 # build docker images
 for CHANNEL in $CHANNELS; do
   VER=${VERSIONS[$CHANNEL]}
-
-  if [ -f $SRC/out/headless-shell-$VER.tar.bz2.docker_build_done ]; then
+  BINARY=$SRC/out/headless-shell-$VER.tar.bz2
+  if [ -f $BINARY.docker_build_done ]; then
     echo ">>>>> SKIPPPING DOCKER BUILD FOR CHANNEL $CHANNEL $VER <<<<<"
     continue
   fi
-
   rm -rf $SRC/out/$VER
   mkdir -p  $SRC/out/$VER
-
-  tar -jxf $SRC/out/headless-shell-$VER.tar.bz2 -C $SRC/out/$VER/
-
-  echo ">>>>> STARTING DOCKER BUILD FOR CHANNEL $CHANNEL $VER ($(date)) <<<<<"
-  docker build \
-    --build-arg VER=$VER \
-    --tag chromedp/headless-shell:$VER \
-    --tag chromedp/headless-shell:$CHANNEL \
-    --quiet .
-
+  tar -jxf $BINARY -C $SRC/out/$VER/
+  TAGS=(--tag chromedp/headless-shell:$VER --tag chromedp/headless-shell:$CHANNEL)
   if [ "$CHANNEL" = "stable" ]; then
-    docker tag chromedp/headless-shell:$VER chromedp/headless-shell:latest
+    TAGS+=(--tag chromedp/headless-shell:latest)
   fi
-
-  touch $SRC/out/headless-shell-$VER.tar.bz2.docker_build_done
-
+  echo ">>>>> STARTING DOCKER BUILD FOR CHANNEL $CHANNEL $VER ($(date)) <<<<<"
+  (set -ev; docker build --build-arg VER=$VER ${TAGS[@]} --quiet .)
+  touch $BINARY.docker_build_done
   echo ">>>>> ENDED DOCKER BUILD FOR CHANNEL $CHANNEL $VER ($(date)) <<<<<"
 done
 
+# push docker images
 for CHANNEL in $CHANNELS; do
   VER=${VERSIONS[$CHANNEL]}
-
-  if [ -f $SRC/out/headless-shell-$VER.tar.bz2.docker_push_done ]; then
-    echo ">>>>> SKIPPPING DOCKER BUILD FOR CHANNEL $CHANNEL $VER <<<<<"
-    continue
-  fi
-
-  TAGS=($VER)
-  TAGS+=($CHANNEL)
+  BINARY=$SRC/out/headless-shell-$VER.tar.bz2
+  TAGS=($VER $CHANNEL)
   if [ "$CHANNEL" = "stable" ]; then
     TAGS+=(latest)
   fi
-
+  if [ ! -f $BINARY ]; then
+    echo ">>>> BINARY FOR CHANNEL $CHANNEL $VER MISSING, SKIPPING DOCKER PUSH <<<<<"
+    continue
+  fi
+  if [ -f $BINARY.docker_push_done ]; then
+    echo ">>>>> SKIPPPING DOCKER PUSH FOR CHANNEL $CHANNEL $VER <<<<<"
+    continue
+  fi
   echo ">>>>> STARTING DOCKER PUSH FOR CHANNEL $CHANNEL $VER ($(date)) <<<<<"
   for TAG in ${TAGS[@]}; do
-    docker push chromedp/headless-shell:$TAG
+    echo ">>>>> DOCKER PUSH CHANNEL $CHANNEL $VER $TAG ($(date)) <<<<<"
+    (set -ev; docker push chromedp/headless-shell:$TAG)
   done
-
-  touch $SRC/out/headless-shell-$VER.tar.bz2.docker_push_done
+  touch $BINARY.docker_push_done
   echo ">>>>> ENDED DOCKER PUSH FOR CHANNEL $CHANNEL $VER ($(date)) <<<<<"
 done
 
-STABLE=$SRC/out/headless-shell-${VERSIONS[stable]}.tar.bz2
-if [ ! -f $STABLE.slack_done ]; then
+# publish stable binary to slack
+BINARY=$SRC/out/headless-shell-${VERSIONS[stable]}.tar.bz2
+if [ ! -f $BINARY ]; then
+  echo ">>>> BINARY FOR CHANNEL stable ${VERSIONS[stable]} MISSING, SKIPPING SLACK PUBLISH <<<<<"
+else
+  if [ -f $BINARY.slack_done ]; then
+    echo ">>>>> SKIPPING PUBLISH SLACK $BINARY <<<<<"
+    break
+  fi
   echo ">>>>> PUBLISH SLACK ($(date)) <<<<<"
   curl \
-    -F file=@$STABLE \
+    -F file=@$BINARY \
     -F channels=CGEV595RP \
     -H "Authorization: Bearer $(cat $HOME/.slack-token)" \
     https://slack.com/api/files.upload
-  touch $STABLE.slack_done
+  touch $BINARY.slack_done
   echo -e "\n>>>>> END SLACK ($(date)) <<<<<"
-else
-  echo ">>>>> SKIPPING PUBLISH SLACK $STABLE <<<<<"
 fi
 
 popd &> /dev/null
