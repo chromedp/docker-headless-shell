@@ -157,6 +157,7 @@ else
   else
     echo ">>>>> PUBLISH SLACK ($(date)) <<<<<"
     curl \
+      -s \
       -F file=@$BINARY \
       -F channels=CGEV595RP \
       -H "Authorization: Bearer $(cat $HOME/.slack-token)" \
