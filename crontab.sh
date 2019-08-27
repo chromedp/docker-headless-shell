@@ -1,5 +1,9 @@
 #!/bin/bash
 
+# add the following via `crontab -e`:
+# SHELL=/bin/bash
+# 05 */3 * * * $HOME/src/docker/headless-shell/crontab.sh >> /var/log/headless/headless.log 2>&1
+
 set -e
 
 SRC=$(realpath $(cd -P "$( dirname "${BASH_SOURCE[0]}" )" && pwd ))
@@ -44,7 +48,9 @@ CONTAINERS=$(docker container ls \
 )
 if [ ! -z "$CONTAINERS" ]; then
   echo ">>>>> REMOVING DOCKER CONTAINERS ($(date)) <<<<<"
-  (set -x; docker container rm --force $CONTAINERS)
+  (set -x;
+    docker container rm --force $CONTAINERS
+  )
 fi
 
 # remove docker images
@@ -57,18 +63,24 @@ IMAGES=$(docker images \
 )
 if [ ! -z "$IMAGES" ]; then
   echo ">>>>> REMOVING DOCKER IMAGES ($(date)) <<<<<"
-  (set -x; docker rmi --force $IMAGES)
+  (set -x;
+    docker rmi --force $IMAGES
+  )
 fi
 
 # cleanup old directories and archives
 pushd $SRC/out &> /dev/null
 DIRS=$(find . -maxdepth 1 -type d -printf "%f\n"|egrep '^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$'|egrep -v "($(join_by '|' "${VERSIONS[@]}"))"||:)
 if [ ! -z "$DIRS" ]; then
-  (set -x; rm -rf $DIRS)
+  (set -x;
+    rm -rf $DIRS
+  )
 fi
 ARCHIVES=$(find . -maxdepth 1 -type f -printf "%f\n"|egrep '^headless-shell-[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+\.tar\.bz2'|egrep -v "($(join_by '|' "${VERSIONS[@]}"))"||:)
 if [ ! -z "$ARCHIVES" ]; then
-  (set -x; rm -rf $ARCHIVES)
+  (set -x;
+    rm -rf $ARCHIVES
+  )
 fi
 popd &> /dev/null
 
@@ -94,7 +106,9 @@ done
 
 # update base docker image
 echo ">>>>> STARTING DOCKER PULL ($(date)) <<<<<"
-(set -x; docker pull blitznote/debase:18.04)
+(set -x;
+  docker pull blitznote/debase:18.04
+)
 echo ">>>>> ENDED DOCKER PULL ($(date)) <<<<<"
 
 # build docker images
@@ -117,7 +131,9 @@ for CHANNEL in $CHANNELS; do
     TAGS+=(--tag chromedp/headless-shell:latest)
   fi
   echo ">>>>> STARTING DOCKER BUILD FOR CHANNEL $CHANNEL $VER ($(date)) <<<<<"
-  (set -x; docker build --build-arg VER=$VER ${TAGS[@]} --quiet .)
+  (set -x;
+    docker build --build-arg VER=$VER ${TAGS[@]} --quiet .
+  )
   touch $BINARY.docker_build_done
   echo ">>>>> ENDED DOCKER BUILD FOR CHANNEL $CHANNEL $VER ($(date)) <<<<<"
 done
@@ -141,7 +157,9 @@ for CHANNEL in $CHANNELS; do
   echo ">>>>> STARTING DOCKER PUSH FOR CHANNEL $CHANNEL $VER ($(date)) <<<<<"
   for TAG in ${TAGS[@]}; do
     echo ">>>>> DOCKER PUSH CHANNEL $CHANNEL $VER $TAG ($(date)) <<<<<"
-    (set -x; docker push chromedp/headless-shell:$TAG)
+    (set -x;
+      docker push chromedp/headless-shell:$TAG
+    )
   done
   touch $BINARY.docker_push_done
   echo ">>>>> ENDED DOCKER PUSH FOR CHANNEL $CHANNEL $VER ($(date)) <<<<<"

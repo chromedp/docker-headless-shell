@@ -36,6 +36,7 @@ if [ "$UPDATE" -eq "1" ]; then
   echo "UPDATING $DEPOT_TOOLS_DIR ($(date))"
   pushd $DEPOT_TOOLS_DIR &> /dev/null
   git reset --hard
+  git checkout master
   git pull
   popd &> /dev/null
 fi
