@@ -1,0 +1,13 @@
+diff --git a/third_party/zlib/BUILD.gn b/third_party/zlib/BUILD.gn
+index 1a9cd3b..728a011 100644
+--- ./third_party/zlib/BUILD.gn
++++ ./third_party/zlib/BUILD.gn
+@@ -16,7 +16,7 @@ config("zlib_internal_config") {
+ 
+ use_arm_neon_optimizations = false
+ if (current_cpu == "arm" || current_cpu == "arm64") {
+-  if (arm_use_neon) {
++  if (arm_use_neon && is_clang) {
+     use_arm_neon_optimizations = true
+   }
+ }
