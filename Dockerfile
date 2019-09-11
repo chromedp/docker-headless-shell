@@ -1,4 +1,4 @@
-FROM blitznote/debase:18.04
+FROM debian:stable-slim
 
 RUN \
     apt-get clean && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/* \

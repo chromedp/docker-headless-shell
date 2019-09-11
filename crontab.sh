@@ -107,7 +107,7 @@ done
 # update base docker image
 echo ">>>>> STARTING DOCKER PULL ($(date)) <<<<<"
 (set -x;
-  docker pull blitznote/debase:18.04
+  docker pull debian:stable-slim
 )
 echo ">>>>> ENDED DOCKER PULL ($(date)) <<<<<"
 
