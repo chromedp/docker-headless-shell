@@ -36,6 +36,26 @@ $ docker run -d -p 9222:9222 --rm --name headless-shell --shm-size 2G chromedp/h
 $ docker run -d -p 9222:9222 --user nobody --security-opt seccomp=chrome.json --entrypoint '/headless-shell/headless-shell' chromedp/headless-shell --remote-debugging-address=0.0.0.0 --remote-debugging-port=9222 --disable-gpu --headless
 ```
 
+## Using as a base image
+When using `chromedp/headless-shell` as a base image to build an image that runs your own program, You could experience zombie process problem. To reap zombie processeses, use [`dumb-init`](https://github.com/Yelp/dumb-init) or [`tini`](https://github.com/krallin/tini) on your `Dockerfile`'s `ENTRYPOINT`
+
+```dockerfile
+FROM chromedp/headless-shell:latest
+...
+# Install dumb-init or tini
+RUN apt install dumb-init
+# or RUN apt install tini
+...
+ENTRYPOINT ["dumb-init", "--"]
+# or ENTRYPOINT ["tini", "--"]
+CMD ["/path/to/your/program"]
+```
+
+If running Docker 1.13.0 or later, use `docker run`'s `--init` arg instead to reap zombie processes.
+```bash
+docker run -d -p <PORT>:<PORT> --name <your-program> --init <your-image>
+```
+ 
 ## Building and Packaging
 
 The following contains instructions for building and packaging the
