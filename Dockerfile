@@ -3,7 +3,7 @@ FROM debian:stable-slim
 RUN \
     apt-get clean && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/* \
     && apt-get update -y \
-    && apt-get install -y libnspr4 libnss3 libexpat1 libfontconfig1 libuuid1 \
+    && apt-get install -y libnspr4 libnss3 libexpat1 libfontconfig1 libuuid1 tini \
     && apt-get clean && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/* 
 
 ARG VER
@@ -16,4 +16,4 @@ COPY \
 
 EXPOSE 9222
 
-ENTRYPOINT [ "/headless-shell/headless-shell", "--no-sandbox", "--remote-debugging-address=0.0.0.0", "--remote-debugging-port=9222" ]
+ENTRYPOINT [ "/usr/bin/tini", "--", "/headless-shell/headless-shell", "--no-sandbox", "--remote-debugging-address=0.0.0.0", "--remote-debugging-port=9222" ]
