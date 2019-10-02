@@ -43,11 +43,14 @@ When using `chromedp/headless-shell` as a base image to build an image that runs
 FROM chromedp/headless-shell:latest
 ...
 # Install dumb-init or tini
+RUN apt update -y
 RUN apt install dumb-init
 # or RUN apt install tini
 ...
 ENTRYPOINT ["dumb-init", "--"]
 # or ENTRYPOINT ["tini", "--"]
+...
+ENV PATH=$PATH:/headless-shell
 CMD ["/path/to/your/program"]
 ```
 
