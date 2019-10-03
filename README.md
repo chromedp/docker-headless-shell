@@ -44,8 +44,8 @@ FROM chromedp/headless-shell:latest
 ...
 # Install dumb-init or tini
 RUN apt update -y
-RUN apt install dumb-init
-# or RUN apt install tini
+RUN apt install -y dumb-init
+# or RUN apt -y install tini
 ...
 ENTRYPOINT ["dumb-init", "--"]
 # or ENTRYPOINT ["tini", "--"]
