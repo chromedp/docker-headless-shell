@@ -135,7 +135,6 @@ if [ "$SYNC" -eq "1" ]; then
   is_debug=false
   symbol_level=0
   enable_nacl=false
-  use_jumbo_build=true
   blink_symbol_level=0
   headless_use_embedded_resources=true
   ' > $PROJECT/args.gn
