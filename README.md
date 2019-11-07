@@ -42,6 +42,8 @@ When using `chromedp/headless-shell` as a base image to build an image that runs
 ```dockerfile
 FROM chromedp/headless-shell:latest
 ...
+ENV PATH /headless-shell:$PATH
+...
 # Install dumb-init or tini
 RUN apt install dumb-init
 # or RUN apt install tini
