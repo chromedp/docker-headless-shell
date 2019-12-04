@@ -3,6 +3,7 @@
 TREE=${1:-/media/src}
 VER=$2
 BUILDATTEMPTS=$3
+JOBS=160
 
 SRC=$(realpath $(cd -P "$( dirname "${BASH_SOURCE[0]}" )" && pwd ))
 
@@ -31,10 +32,26 @@ if [ -z "$DEPOT_TOOLS_DIR" ]; then
   exit 1
 fi
 
-# update to latest depot_tools
+# grab icecc-chromium
+if [ ! -d $SRC/icecc-chromium ]; then
+  pushd $SRC &> /dev/null
+  git clone https://github.com/lilles/icecc-chromium.git
+  popd &> /dev/null
+fi
+
+export PATH=$SRC/icecc-chromium:$PATH
+source $SRC/icecc-chromium/ccache-env
+
+# update to latest depot_tools and icecc-chromium
 if [ "$UPDATE" -eq "1" ]; then
   echo "UPDATING $DEPOT_TOOLS_DIR ($(date))"
   pushd $DEPOT_TOOLS_DIR &> /dev/null
+  git reset --hard
+  git checkout master
+  git pull
+  popd &> /dev/null
+
+  pushd $SRC/icecc-chromium
   git reset --hard
   git checkout master
   git pull
@@ -131,13 +148,14 @@ if [ "$SYNC" -eq "1" ]; then
   mkdir -p $PROJECT
 
   # gn build args
-  echo 'import("//build/args/headless.gn")
+  echo "import(\"//build/args/headless.gn\")
+  import(\"$SRC/icecc-chromium/icecc.gni\")
   is_debug=false
   symbol_level=0
   enable_nacl=false
   blink_symbol_level=0
   headless_use_embedded_resources=true
-  ' > $PROJECT/args.gn
+  " > $PROJECT/args.gn
 
   # generate build files
   gn gen $PROJECT
@@ -148,7 +166,7 @@ RET=1
 for i in $(seq 1 $BUILDATTEMPTS); do
   RET=1
   echo "STARTING NINJA BUILD ATTEMPT $i FOR $VER ($(date))"
-  ninja -C $PROJECT headless_shell chrome_sandbox && RET=$?
+  $SRC/icecc-chromium/icecc-ninja -j $JOBS -C $PROJECT headless_shell chrome_sandbox && RET=$?
   if [ $RET -eq 0 ]; then
     echo "COMPLETED NINJA BUILD ATTEMPT $i FOR $VER ($(date))"
     break
