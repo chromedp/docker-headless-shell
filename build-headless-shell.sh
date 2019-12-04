@@ -8,7 +8,7 @@ JOBS=160
 SRC=$(realpath $(cd -P "$( dirname "${BASH_SOURCE[0]}" )" && pwd ))
 
 if [ -z "$BUILDATTEMPTS" ]; then
-  BUILDATTEMPTS=3
+  BUILDATTEMPTS=10
 fi
 
 # determine update state
