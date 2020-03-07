@@ -2,7 +2,7 @@
 
 # add via `crontab -e`:
 #
-#   05 */3 * * * $HOME/src/docker/headless-shell/crontab.sh 2>&1 >> /var/log/headless/headless.log
+#   05 */3 * * * $HOME/src/docker/headless-shell/crontab.sh -j <JOBS> 2>&1 >> /var/log/headless/headless.log
 
 SRC=$(realpath $(cd -P "$(dirname "${BASH_SOURCE[0]}")" && pwd))
 
@@ -25,7 +25,7 @@ set -e
 
 OMAHA="$(curl -s https://omahaproxy.appspot.com/all.json)"
 if [ -z "$CHANNELS" ]; then
-  CHANNELS=$(jq -r '.[] | select(.os == "win64") | .versions[] | .channel' <<< "$OMAHA")
+  CHANNELS=$(jq -r '.[] | select(.os == "win64") | .versions[] | .channel' <<< "$OMAHA"|grep -v 'canary'|tr '\r\n' ' '|sed -e 's/ $//')
 fi
 
 export PATH=$PATH:$HOME/src/misc/chrome/depot_tools
