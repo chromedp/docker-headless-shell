@@ -6,12 +6,12 @@ RUN \
     && apt-get install -y libnspr4 libnss3 libexpat1 libfontconfig1 libuuid1 \
     && apt-get clean && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/* 
 
-ARG VER
+ARG VERSION
 
 COPY \
-    out/$VER/headless-shell/headless-shell \
-    out/$VER/headless-shell/.stamp \
-    out/$VER/headless-shell/swiftshader \
+    out/$VERSION/headless-shell/headless-shell \
+    out/$VERSION/headless-shell/.stamp \
+    out/$VERSION/headless-shell/swiftshader \
     /headless-shell/
 
 EXPOSE 9222

@@ -1,30 +1,20 @@
 #!/bin/bash
 
-TREE=${1:-/media/src}
-VER=$2
-BUILDATTEMPTS=$3
-JOBS=160
+# setup:
+#
+# 1. install icecc + cccahe, and enable scheduler:
+#
+#   sudo aptitude install icecc ccache
+#   sudo systemctl enable icecc-scheduler.service
+#   sudo systemctl start icecc-scheduler.service
+#
+# 2. manually add custom_hooks to /media/src/chromium/.gclient:
+#
+#   "custom_hooks": [ {"pattern": ".", "action": ["icecc-create-env.py"] } ]
+#
+# for full instructions, see: https://github.com/lilles/icecc-chromium
 
-SRC=$(realpath $(cd -P "$( dirname "${BASH_SOURCE[0]}" )" && pwd ))
-
-if [ -z "$BUILDATTEMPTS" ]; then
-  BUILDATTEMPTS=10
-fi
-
-# determine update state
-UPDATE=0
-LAST=0
-if [ -e $SRC/.last ]; then
-  LAST=$(cat $SRC/.last)
-fi
-if [ "$((`date +%s` - $LAST))" -gt 86400 ]; then
-  UPDATE=1
-fi
-
-echo "UPDATE: $UPDATE"
-echo "LAST: $LAST"
-
-set -e
+SRC=$(realpath $(cd -P "$(dirname "${BASH_SOURCE[0]}")" && pwd))
 
 DEPOT_TOOLS_DIR=$(dirname $(which gclient))
 if [ -z "$DEPOT_TOOLS_DIR" ]; then
@@ -32,15 +22,61 @@ if [ -z "$DEPOT_TOOLS_DIR" ]; then
   exit 1
 fi
 
+ATTEMPTS=10
+BASE=/media/src
+JOBS=$((`nproc` + 2))
+TTL=86400
+UPDATE=0
+VERSION=
+
+OPTIND=1
+while getopts "a:b:j:t:uv:" opt; do
+case "$opt" in
+  a) ATTEMPTS=$OPTARG ;;
+  b) BASE=$OPTARG ;;
+  j) JOBS=$OPTARG ;;
+  t) TTL=$OPTARG ;;
+  u) UPDATE=1 ;;
+  v) VERSION=$OPTARG ;;
+esac
+done
+
+set -e
+
+# determine last update state
+LAST=0
+if [ -e $SRC/.last ]; then
+  LAST=$(cat $SRC/.last)
+fi
+if [ "$((`date +%s` - $LAST))" -gt $TTL ]; then
+  UPDATE=1
+fi
+
+if [ -z "$VERSION" ]; then
+  VERSION=$(
+    curl -s https://omahaproxy.appspot.com/all.json | \
+      jq -r '.[] | select(.os == "win64") | .versions[] | select(.channel == "stable") | .current_version'
+  )
+fi
+
+echo "ATTEMPTS: $ATTEMPTS"
+echo "BASE:     $BASE"
+echo "JOBS:     $JOBS"
+echo "UPDATE:   $UPDATE"
+echo "VERSION:  $VERSION"
+
+mkdir -p $SRC/out
+TMPDIR=$(mktemp -d -p /tmp headless-shell-$VERSION.XXXXX)
+ARCHIVE=$SRC/out/headless-shell-$VERSION.tar.bz2
+echo "TMPDIR:   $TMPDIR"
+echo "ARCHIVE:  $ARCHIVE"
+
 # grab icecc-chromium
 if [ ! -d $SRC/icecc-chromium ]; then
   pushd $SRC &> /dev/null
   git clone https://github.com/lilles/icecc-chromium.git
   popd &> /dev/null
 fi
-
-export PATH=$SRC/icecc-chromium:$PATH
-source $SRC/icecc-chromium/ccache-env
 
 # update to latest depot_tools and icecc-chromium
 if [ "$UPDATE" -eq "1" ]; then
@@ -51,6 +87,7 @@ if [ "$UPDATE" -eq "1" ]; then
   git pull
   popd &> /dev/null
 
+  echo "UPDATING $SRC/icecc-chromium ($(date))"
   pushd $SRC/icecc-chromium
   git reset --hard
   git checkout master
@@ -58,25 +95,27 @@ if [ "$UPDATE" -eq "1" ]; then
   popd &> /dev/null
 fi
 
-# chromium source tree dir
-mkdir -p $TREE/chromium
+export PATH=$SRC/icecc-chromium:$PATH
+source $SRC/icecc-chromium/ccache-env
+
+mkdir -p $BASE/chromium
 
 # retrieve chromium source tree
-if [ ! -d $TREE/chromium/src ]; then
-  echo "RETRIEVING $TREE/chromium/src ($(date))"
+if [ ! -d $BASE/chromium/src ]; then
+  echo "RETRIEVING $BASE/chromium/src ($(date))"
   # retrieve
-  pushd $TREE/chromium &> /dev/null
+  pushd $BASE/chromium &> /dev/null
   fetch --nohooks chromium
   popd &> /dev/null
 
   # run hooks
-  echo "RUNNING GCLIENT HOOKS $TREE/chromium/src ($(date))"
-  pushd $TREE/chromium/src &> /dev/null
+  echo "RUNNING GCLIENT HOOKS $BASE/chromium/src ($(date))"
+  pushd $BASE/chromium/src &> /dev/null
   gclient runhooks
   popd &> /dev/null
 fi
 
-pushd $TREE/chromium/src &> /dev/null
+pushd $BASE/chromium/src &> /dev/null
 
 # update chromium source tree
 if [ "$UPDATE" -eq "1" ]; then
@@ -97,24 +136,10 @@ if [ "$UPDATE" -eq "1" ]; then
   echo "NEW LAST: $(cat $SRC/.last) ($(date))"
 fi
 
-# determine latest version
-if [ -z "$VER" ]; then
-  VER=$(git tag -l|grep -E '^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$'|sort -r -V|head -1)
-fi
-
-mkdir -p $SRC/out
-
-TMP=$(mktemp -d -p /tmp headless-shell-$VER.XXXXX)
-OUT=$SRC/out/headless-shell-$VER.tar.bz2
-
-echo "VER: $VER"
-echo "TMP: $TMP"
-echo "OUT: $OUT"
-
 PROJECT=out/headless-shell
 
 SYNC=$UPDATE
-if [ "$VER" != "$(git name-rev --tags --name-only $(git rev-parse HEAD))" ]; then
+if [ "$VERSION" != "$(git name-rev --tags --name-only $(git rev-parse HEAD))" ]; then
   SYNC=1
 fi
 
@@ -127,10 +152,10 @@ if [ "$SYNC" -eq "1" ]; then
   done
 
   # checkout and sync third-party dependencies
-  echo "CHECKING OUT $VER ($(date))"
-  git checkout $VER
+  echo "CHECKING OUT $VERSION ($(date))"
+  git checkout $VERSION
 
-  echo "GCLIENT SYNC $VER ($(date))"
+  echo "GCLIENT SYNC $VERSION ($(date))"
   gclient sync \
     --with_branch_heads \
     --with_tags \
@@ -161,34 +186,34 @@ if [ "$SYNC" -eq "1" ]; then
   gn gen $PROJECT
 fi
 
-# build loop
+# build
 RET=1
-for i in $(seq 1 $BUILDATTEMPTS); do
+for i in $(seq 1 $ATTEMPTS); do
   RET=1
-  echo "STARTING NINJA BUILD ATTEMPT $i FOR $VER ($(date))"
+  echo "STARTING BUILD ATTEMPT $i FOR $VERSION ($(date))"
   $SRC/icecc-chromium/icecc-ninja -j $JOBS -C $PROJECT headless_shell chrome_sandbox && RET=$?
   if [ $RET -eq 0 ]; then
-    echo "COMPLETED NINJA BUILD ATTEMPT $i FOR $VER ($(date))"
+    echo "COMPLETED BUILD ATTEMPT $i FOR $VERSION ($(date))"
     break
   fi
-  echo "NINJA BUILD ATTEMPT $i FOR $VER FAILED ($(date))"
+  echo "BUILD ATTEMPT $i FOR $VERSION FAILED ($(date))"
 done
 if [ $RET -ne 0 ]; then
-  echo "ERROR: COULD NOT COMPLETE NINJA BUILD FOR $VER ($(date))"
+  echo "ERROR: COULD NOT COMPLETE BUILD FOR $VERSION ($(date))"
   exit 1
 fi
 
 # build stamp
-echo $VER > $PROJECT/.stamp
+echo $VERSION > $PROJECT/.stamp
 
 # copy files
-mkdir -p $TMP/headless-shell/swiftshader
-cp -a $PROJECT/{headless_shell,chrome_sandbox,.stamp} $TMP/headless-shell
-cp -a $PROJECT/swiftshader/*.so $TMP/headless-shell/swiftshader
+mkdir -p $TMPDIR/headless-shell/swiftshader
+cp -a $PROJECT/{headless_shell,chrome_sandbox,.stamp} $TMPDIR/headless-shell
+cp -a $PROJECT/swiftshader/*.so $TMPDIR/headless-shell/swiftshader
 
 popd &> /dev/null
 
-pushd $TMP/headless-shell &> /dev/null
+pushd $TMPDIR/headless-shell &> /dev/null
 
 # rename and strip
 mv chrome_sandbox chrome-sandbox
@@ -204,8 +229,8 @@ kill -s SIGTERM $PID
 set +e
 wait $PID 2>/dev/null
 set -e
-if [ "$BROWSER" != "Chrome/$VER" ]; then
-  echo "ERROR: HEADLESS-SHELL REPORTED VERSION '$BROWSER', NOT 'Chrome/$VER'!"
+if [ "$BROWSER" != "Chrome/$VERSION" ]; then
+  echo "ERROR: HEADLESS-SHELL REPORTED VERSION '$BROWSER', NOT 'Chrome/$VERSION'!"
   exit 1
 else
   echo "HEADLESS SHELL REPORTED VERSION '$BROWSER'"
@@ -213,9 +238,9 @@ fi
 popd &> /dev/null
 
 # remove previous
-rm -f $OUT
+rm -f $ARCHIVE
 
 # package tar
-pushd $TMP &> /dev/null
-tar -cjf $OUT headless-shell
+pushd $TMPDIR &> /dev/null
+tar -cjf $ARCHIVE headless-shell
 popd &> /dev/null
