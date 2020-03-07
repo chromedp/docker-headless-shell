@@ -117,7 +117,6 @@ for CHANNEL in $CHANNELS; do
   fi
   echo "STARTING DOCKER PUSH FOR CHANNEL $CHANNEL $VERSION ($(date))"
   for TAG in ${TAGS[@]}; do
-    echo "DOCKER PUSH CHANNEL $CHANNEL $VERSION $TAG ($(date))"
     (set -x;
       docker push chromedp/headless-shell:$TAG
     )
