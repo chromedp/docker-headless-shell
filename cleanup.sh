@@ -23,7 +23,7 @@ set -e
 if [ -z "$CHANNELS" ]; then
   OMAHA="$(curl -s https://omahaproxy.appspot.com/all.json)"
   if [ -z "$CHANNELS" ]; then
-    CHANNELS=$(jq -r '.[] | select(.os == "win64") | .versions[] | .channel' <<< "$OMAHA"|tr '\r\n' ' '|sed -e 's/ $//')
+    CHANNELS="$(jq -r '.[] | select(.os == "win64") | .versions[] | .channel' <<< "$OMAHA"|tr '\r\n' ' '|sed -e 's/ $//')"
   fi
 fi
 if [ -z "$VERSIONS" ]; then
@@ -35,9 +35,9 @@ if [ -z "$VERSIONS" ]; then
   done
 fi
 
-echo "KEEP: ${CHANNELS[@]} ${VERSIONS[@]}"
+echo "CLEANUP KEEP: latest ${CHANNELS[@]} ${VERSIONS[@]}"
 
-# cleanup old directories and archives
+# cleanup old directories and files
 if [ -d $SRC/out ]; then
   pushd $SRC/out &> /dev/null
   DIRS=$(find . -maxdepth 1 -type d -printf "%f\n"|egrep '^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$'|egrep -v "($(join_by '|' $VERSIONS))"||:)
@@ -46,10 +46,10 @@ if [ -d $SRC/out ]; then
       rm -rf $DIRS
     )
   fi
-  ARCHIVES=$(find . -maxdepth 1 -type f -printf "%f\n"|egrep '^headless-shell-[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+\.tar\.bz2'|egrep -v "($(join_by '|' $VERSIONS))"||:)
-  if [ ! -z "$ARCHIVES" ]; then
+  FILES=$(find . -maxdepth 1 -type f -printf "%f\n"|egrep '^headless-shell-[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+\.tar\.bz2'|egrep -v "($(join_by '|' $VERSIONS))"||:)
+  if [ ! -z "$FILES" ]; then
     (set -x;
-      rm -rf $ARCHIVES
+      rm -rf $FILES
     )
   fi
   popd &> /dev/null
@@ -73,8 +73,7 @@ fi
 IMAGES=$(docker images \
   --filter=reference=chromedp/headless-shell \
   |sed 1d \
-  |egrep -v "($(join_by '|' $CHANNELS))" \
-  |egrep -v "(latest|$(join_by '|' $VERSIONS))" \
+  |egrep -v "($(join_by '|' latest $CHANNELS $VERSIONS))" \
   |awk '{print $3}'
 )
 if [ ! -z "$IMAGES" ]; then
