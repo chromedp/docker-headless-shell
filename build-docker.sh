@@ -1,20 +1,20 @@
 #!/bin/bash
 
-SRC=$(realpath $(cd -P "$( dirname "${BASH_SOURCE[0]}" )" && pwd ))
+SRC=$(realpath $(cd -P "$(dirname "${BASH_SOURCE[0]}")" && pwd))
 
 if [ ! -d $SRC/out ]; then
   echo "$SRC/out does not exist!"
   exit 1
 fi
 
-TAGS=
+TAGS=()
 UPDATE=0
 VERSION=
 
 OPTIND=1
 while getopts "t:uv:" opt; do
 case "$opt" in
-  t) TAGS=$OPTARG ;;
+  t) TAGS+=($OPTARG) ;;
   u) UPDATE=1 ;;
   v) VERSION=$OPTARG ;;
 esac
@@ -44,7 +44,7 @@ if [ "$UPDATE" = "1" ]; then
 fi
 
 PARAMS=(--tag chromedp/headless-shell:$VERSION)
-for TAG in $TAGS; do
+for TAG in ${TAGS[@]}; do
   PARAMS+=(--tag chromedp/headless-shell:$TAG)
 done
 

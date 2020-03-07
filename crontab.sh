@@ -88,13 +88,13 @@ for CHANNEL in $CHANNELS; do
     echo "SKIPPPING DOCKER BUILD FOR CHANNEL $CHANNEL $VERSION"
     continue
   fi
-  TAGS=($CHANNEL)
+  PARAMS=(-t $CHANNEL)
   if [ "$CHANNEL" = "stable" ]; then
-    TAGS+=(latest)
+    PARAMS+=(-t latest)
   fi
   ./build-docker.sh \
     -v $VERSION \
-    -t "${TAGS[@]}"
+    ${PARAMS[@]}
   touch $ARCHIVE.docker_build_done
   echo "ENDED DOCKER BUILD FOR CHANNEL $CHANNEL $VERSION ($(date))"
 done
