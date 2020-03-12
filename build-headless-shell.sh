@@ -16,12 +16,6 @@
 
 SRC=$(realpath $(cd -P "$(dirname "${BASH_SOURCE[0]}")" && pwd))
 
-DEPOT_TOOLS_DIR=$(dirname $(which gclient))
-if [ -z "$DEPOT_TOOLS_DIR" ]; then
-  echo "gclient not in \$PATH"
-  exit 1
-fi
-
 ATTEMPTS=10
 BASE=/media/src
 JOBS=$((`nproc` + 2))
@@ -71,6 +65,13 @@ ARCHIVE=$SRC/out/headless-shell-$VERSION.tar.bz2
 echo "TMPDIR:   $TMPDIR"
 echo "ARCHIVE:  $ARCHIVE"
 
+# grab depot_tools
+if [ ! -d $SRC/depot_tools ]; then
+  pushd $SRC &> /dev/null
+  git clone https://chromium.googlesource.com/chromium/tools/depot_tools.git
+  popd &> /dev/null
+fi
+
 # grab icecc-chromium
 if [ ! -d $SRC/icecc-chromium ]; then
   pushd $SRC &> /dev/null
@@ -80,8 +81,8 @@ fi
 
 # update to latest depot_tools and icecc-chromium
 if [ "$UPDATE" -eq "1" ]; then
-  echo "UPDATING $DEPOT_TOOLS_DIR ($(date))"
-  pushd $DEPOT_TOOLS_DIR &> /dev/null
+  echo "UPDATING $SRC/depot_tools ($(date))"
+  pushd $SRC/depot_tools &> /dev/null
   git reset --hard
   git checkout master
   git pull
@@ -95,7 +96,7 @@ if [ "$UPDATE" -eq "1" ]; then
   popd &> /dev/null
 fi
 
-export PATH=$SRC/icecc-chromium:$PATH
+export PATH=$SRC/depot_tools:$SRC/icecc-chromium:$PATH
 source $SRC/icecc-chromium/ccache-env
 
 mkdir -p $BASE/chromium
