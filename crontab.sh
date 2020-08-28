@@ -139,6 +139,19 @@ for CHANNEL in $CHANNELS; do
     )
   done
   touch $ARCHIVE.docker_push_done
+
+  # notify slack
+  HASH=$(docker inspect --format='{{index .RepoDigests 0}}' chromedp/headless-shell:$VERSION|awk -F@ '{print $2}')
+  LINK=$(printf "https://hub.docker.com/layers/chromedp/headless-shell/%s/images/sha256-%s?context=explore" $VERSION $HASH)
+  TEXT="Pushed headless-shell ($TAGS) to Docker hub: <$LINK|chromedp/headless-shell:$VERSION>"
+  curl \
+    -s \
+    -X POST \
+    -H "Authorization: Bearer $(cat $HOME/.slack-token)" \
+    -H "Content-Type: application/json" \
+    -d "{\"channel\": \"CGEV595RP\", \"text\": \"$TEXT\"}" \
+    https://slack.com/api/chat.postMessage
+
   echo "ENDED DOCKER PUSH FOR CHANNEL $CHANNEL $VERSION ($(date))"
 done
 
