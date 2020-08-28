@@ -50,10 +50,20 @@ CHANNELS_ORDER=$(
     echo "${VERSIONS[$i]}:::$i"
   done | sort -V | awk -F::: '{print $2}'
 )
+echo -n "BUILD ORDER:"
+i=0
+for CHANNEL in $CHANNELS_ORDER; do
+  if [ "$i" != "0" ]; then
+    echo -n ","
+  fi
+  echo -n " $CHANNEL (${VERSIONS[$CHANNEL]})"
+  i=$((i+1))
+done
+echo
 
-echo "CLEAN UP ($(date))"
+echo "CLEANUP ($(date))"
 ./cleanup.sh -c "${CHANNELS[@]}" -v "${VERSIONS[@]}"
-echo "ENDED CLEAN UP ($(date))"
+echo "ENDED CLEANUP ($(date))"
 
 # attempt to build the channels
 for CHANNEL in $CHANNELS_ORDER; do
