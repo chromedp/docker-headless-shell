@@ -149,7 +149,7 @@ for CHANNEL in $CHANNELS; do
     -X POST \
     -H "Authorization: Bearer $(cat $HOME/.slack-token)" \
     -H "Content-Type: application/json" \
-    -d "{\"channel\": \"CGEV595RP\", \"text\": \"$TEXT\"}" \
+    -d "{\"channel\": \"CGEV595RP\", \"text\": \"$TEXT\", \"as_user\": true}" \
     https://slack.com/api/chat.postMessage
 
   echo "ENDED DOCKER PUSH FOR CHANNEL $CHANNEL $VERSION ($(date))"
