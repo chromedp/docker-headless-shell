@@ -151,8 +151,7 @@ for CHANNEL in $CHANNELS; do
     -H "Content-Type: application/json" \
     -d "{\"channel\": \"CGEV595RP\", \"text\": \"$TEXT\", \"as_user\": true}" \
     https://slack.com/api/chat.postMessage
-
-  echo "ENDED DOCKER PUSH FOR CHANNEL $CHANNEL $VERSION ($(date))"
+  echo -e "\nENDED DOCKER PUSH FOR CHANNEL $CHANNEL $VERSION ($(date))"
 done
 
 # publish stable binary to slack
