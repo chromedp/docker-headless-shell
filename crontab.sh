@@ -44,12 +44,19 @@ for CHANNEL in $CHANNELS; do
   echo "CHANNEL $(tr '[:lower:]' '[:upper:]' <<< "$CHANNEL"): $VERSION"
 done
 
+# order channels low -> high
+CHANNELS_ORDER=$(
+  for i in ${!VERSIONS[@]}; do
+    echo "${VERSIONS[$i]}:::$i"
+  done | sort -V | awk -F::: '{print $2}'
+)
+
 echo "CLEAN UP ($(date))"
 ./cleanup.sh -c "${CHANNELS[@]}" -v "${VERSIONS[@]}"
 echo "ENDED CLEAN UP ($(date))"
 
 # attempt to build the channels
-for CHANNEL in $CHANNELS; do
+for CHANNEL in $CHANNELS_ORDER; do
   VERSION=${VERSIONS[$CHANNEL]}
   ARCHIVE=$SRC/out/headless-shell-$VERSION.tar.bz2
   if [ -f $ARCHIVE ]; then
