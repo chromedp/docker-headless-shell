@@ -41,7 +41,6 @@ declare -A VERSIONS
 for CHANNEL in $CHANNELS; do
   VERSION=$(jq -r '.[] | select(.os == "win64") | .versions[] | select(.channel == "'$CHANNEL'") | .current_version' <<< "$OMAHA")
   VERSIONS[$CHANNEL]=$VERSION
-  echo "CHANNEL $(tr '[:lower:]' '[:upper:]' <<< "$CHANNEL"): $VERSION"
 done
 
 # order channels low -> high
@@ -50,6 +49,7 @@ CHANNELS_ORDER=$(
     echo "${VERSIONS[$i]}:::$i"
   done | sort -V | awk -F::: '{print $2}'
 )
+
 echo -n "BUILD ORDER:"
 i=0
 for CHANNEL in $CHANNELS_ORDER; do
@@ -60,6 +60,10 @@ for CHANNEL in $CHANNELS_ORDER; do
   i=$((i+1))
 done
 echo
+
+for CHANNEL in $CHANNELS_ORDER; do
+  echo "CHANNEL: $CHANNEL ($VERSION)"
+done
 
 echo "CLEANUP ($(date))"
 ./cleanup.sh -c "${CHANNELS[@]}" -v "${VERSIONS[@]}"
@@ -94,7 +98,7 @@ BASEIMAGE=$(grep 'FROM' Dockerfile|awk '{print $2}')
 (set -x;
   docker pull $BASEIMAGE
 )
-for CHANNEL in $CHANNELS; do
+for CHANNEL in $CHANNELS_ORDER; do
   VERSION=${VERSIONS[$CHANNEL]}
   ARCHIVE=$SRC/out/headless-shell-$VERSION.tar.bz2
   if [ ! -f $ARCHIVE ]; then
@@ -117,7 +121,7 @@ for CHANNEL in $CHANNELS; do
 done
 
 # push docker images
-for CHANNEL in $CHANNELS; do
+for CHANNEL in $CHANNELS_ORDER; do
   VERSION=${VERSIONS[$CHANNEL]}
   ARCHIVE=$SRC/out/headless-shell-$VERSION.tar.bz2
   TAGS=($VERSION $CHANNEL)
