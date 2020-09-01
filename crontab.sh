@@ -62,7 +62,7 @@ done
 echo
 
 for CHANNEL in $CHANNELS_ORDER; do
-  echo "CHANNEL: $CHANNEL ($VERSION)"
+  echo "CHANNEL: $CHANNEL (${VERSIONS[$CHANNEL]})"
 done
 
 echo "CLEANUP ($(date))"
