@@ -9,14 +9,16 @@ SRC=$(realpath $(cd -P "$(dirname "${BASH_SOURCE[0]}")" && pwd))
 ATTEMPTS=10
 BASE=/media/src
 CHANNELS=
+CLEANUP=1
 JOBS=$((`nproc` + 2))
 
 OPTIND=1
-while getopts "a:b:c:j:" opt; do
+while getopts "a:b:c:Cj:" opt; do
 case "$opt" in
   a) ATTEMPTS=$OPTARG ;;
   b) BASE=$OPTARG ;;
   c) CHANNELS=$OPTARG ;;
+  C) CLEANUP=0 ;;
   j) JOBS=$OPTARG ;;
 esac
 done
@@ -65,9 +67,11 @@ for CHANNEL in $CHANNELS_ORDER; do
   echo "CHANNEL: $CHANNEL (${VERSIONS[$CHANNEL]})"
 done
 
-echo "CLEANUP ($(date))"
-./cleanup.sh -c "${CHANNELS[@]}" -v "${VERSIONS[@]}"
-echo "ENDED CLEANUP ($(date))"
+if [ "$CLEANUP" = "1" ]; then
+  echo "CLEANUP ($(date))"
+  ./cleanup.sh -c "${CHANNELS[@]}" -v "${VERSIONS[@]}"
+  echo "ENDED CLEANUP ($(date))"
+fi
 
 # attempt to build the channels
 for CHANNEL in $CHANNELS_ORDER; do
