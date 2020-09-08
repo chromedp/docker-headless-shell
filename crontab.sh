@@ -165,12 +165,12 @@ done
 # publish stable binary to slack
 ARCHIVE=$SRC/out/headless-shell-${VERSIONS[stable]}.tar.bz2
 if [ ! -f $ARCHIVE ]; then
-  echo "MISSING ARCHIVE FOR CHANNEL stable, SKIPPING SLACK PUBLISH"
+  echo "MISSING ARCHIVE FOR CHANNEL stable, SKIPPING SLACK NOTIFY"
 else
   if [ -f $ARCHIVE.slack_done ]; then
-    echo "SKIPPING PUBLISH SLACK $ARCHIVE"
+    echo "SKIPPING SLACK NOTIFY $ARCHIVE"
   else
-    echo "PUBLISH SLACK ($(date))"
+    echo "STARTING SLACK NOTIFY ($(date))"
     curl \
       -s \
       -F file=@$ARCHIVE \
@@ -178,7 +178,7 @@ else
       -H "Authorization: Bearer $(cat $HOME/.slack-token)" \
       https://slack.com/api/files.upload
     touch $ARCHIVE.slack_done
-    echo -e "\nENDED PUBLISH SLACK ($(date))"
+    echo -e "\nENDED SLACK NOTIFY ($(date))"
   fi
 fi
 
