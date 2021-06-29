@@ -46,6 +46,7 @@ if [ "$((`date +%s` - $LAST))" -gt $TTL ]; then
   UPDATE=1
 fi
 
+# determine version
 if [ -z "$VERSION" ]; then
   VERSION=$(
     curl -s https://omahaproxy.appspot.com/all.json | \
@@ -73,11 +74,11 @@ if [ ! -d $SRC/depot_tools ]; then
 fi
 
 # grab icecc-chromium
-if [ ! -d $SRC/icecc-chromium ]; then
-  pushd $SRC &> /dev/null
-  git clone https://github.com/lilles/icecc-chromium.git
-  popd &> /dev/null
-fi
+#if [ ! -d $SRC/icecc-chromium ]; then
+#  pushd $SRC &> /dev/null
+#  git clone https://github.com/lilles/icecc-chromium.git
+#  popd &> /dev/null
+#fi
 
 # update to latest depot_tools and icecc-chromium
 if [ "$UPDATE" -eq "1" ]; then
@@ -88,16 +89,17 @@ if [ "$UPDATE" -eq "1" ]; then
   git pull
   popd &> /dev/null
 
-  echo "UPDATING $SRC/icecc-chromium ($(date))"
-  pushd $SRC/icecc-chromium
-  git reset --hard
-  git checkout master
-  git pull
-  popd &> /dev/null
+#  echo "UPDATING $SRC/icecc-chromium ($(date))"
+#  pushd $SRC/icecc-chromium
+#  git reset --hard
+#  git checkout master
+#  git pull
+#  popd &> /dev/null
 fi
 
-export PATH=$SRC/depot_tools:$SRC/icecc-chromium:$PATH
-source $SRC/icecc-chromium/ccache-env
+export PATH=$SRC/depot_tools:$PATH
+#export PATH=$SRC/depot_tools:$SRC/icecc-chromium:$PATH
+#source $SRC/icecc-chromium/ccache-env
 
 mkdir -p $BASE/chromium
 
@@ -133,12 +135,14 @@ if [ "$UPDATE" -eq "1" ]; then
   echo "REBASING TREE ($(date))"
   git rebase-update
 
+  # mark last
   date +%s > $SRC/.last
   echo "NEW LAST: $(cat $SRC/.last) ($(date))"
 fi
 
 PROJECT=out/headless-shell
 
+# determine sync status
 SYNC=$UPDATE
 if [ "$VERSION" != "$(git name-rev --tags --name-only $(git rev-parse HEAD))" ]; then
   SYNC=1
@@ -174,8 +178,8 @@ if [ "$SYNC" -eq "1" ]; then
   mkdir -p $PROJECT
 
   # gn build args
+#  import(\"$SRC/icecc-chromium/icecc.gni\") # icecc parameters (removed)
   echo "import(\"//build/args/headless.gn\")
-  import(\"$SRC/icecc-chromium/icecc.gni\")
   is_debug=false
   symbol_level=0
   enable_nacl=false
@@ -192,7 +196,8 @@ RET=1
 for i in $(seq 1 $ATTEMPTS); do
   RET=1
   echo "STARTING BUILD ATTEMPT $i FOR $VERSION ($(date))"
-  $SRC/icecc-chromium/icecc-ninja -j $JOBS -C $PROJECT headless_shell chrome_sandbox && RET=$?
+  #$SRC/icecc-chromium/icecc-ninja -j $JOBS -C $PROJECT headless_shell chrome_sandbox && RET=$?
+  $SRC/depot_tools/ninja -j $JOBS -C $PROJECT headless_shell chrome_sandbox && RET=$?
   if [ $RET -eq 0 ]; then
     echo "COMPLETED BUILD ATTEMPT $i FOR $VERSION ($(date))"
     break
@@ -225,7 +230,7 @@ chmod -x swiftshader/*.so
 # verify headless-shell runs and reports correct version
 ./headless-shell --remote-debugging-port=5000 &> /dev/null & PID=$!
 sleep 1
-BROWSER=$(curl --silent --connect-timeout 5 http://localhost:5000/json/version |jq -r '.Browser')
+BROWSER=$(curl --silent --connect-timeout 5 http://localhost:5000/json/version|jq -r '.Browser')
 kill -s SIGTERM $PID
 set +e
 wait $PID 2>/dev/null
