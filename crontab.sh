@@ -35,7 +35,11 @@ export CHROMIUM_BUILDTOOLS_PATH=/media/src/chromium/src/buildtools
 
 pushd $SRC &> /dev/null
 
-lockfile -r 0 .lock || exit 1
+# obtain lock
+if ! (set -o noclobber; echo -e "START $(date)\nPID $$" > .lock); then
+  echo "CANNOT OBTAIN LOCK, EXITING ($(date))"
+  exit 1
+fi
 
 echo "------------------------------------------------------------"
 echo "STARTING ($(date))"
