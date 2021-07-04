@@ -35,6 +35,8 @@ export CHROMIUM_BUILDTOOLS_PATH=/media/src/chromium/src/buildtools
 
 pushd $SRC &> /dev/null
 
+lockfile -r 0 .lock || exit 1
+
 echo "------------------------------------------------------------"
 echo "STARTING ($(date))"
 
@@ -182,6 +184,8 @@ else
   fi
 fi
 
-popd &> /dev/null
-
 echo "DONE ($(date))"
+
+rm -f .lock
+
+popd &> /dev/null
