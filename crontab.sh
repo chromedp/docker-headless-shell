@@ -2,7 +2,7 @@
 
 # add via `crontab -e`:
 #
-#   05 */3 * * * $HOME/src/docker/headless-shell/crontab.sh -j <JOBS> 2>&1 >> /var/log/headless/headless.log
+#   05 */3 * * * /usr/bin/flock -w 0 $HOME/src/headless-shell/crontab.lock $HOME/src/headless-shell/crontab.sh -j <JOBS> 2>&1 >> /var/log/headless/headless.log
 
 SRC=$(realpath $(cd -P "$(dirname "${BASH_SOURCE[0]}")" && pwd))
 
@@ -34,12 +34,6 @@ export PATH=$PATH:$HOME/src/misc/chrome/depot_tools
 export CHROMIUM_BUILDTOOLS_PATH=/media/src/chromium/src/buildtools
 
 pushd $SRC &> /dev/null
-
-# obtain lock
-if ! (set -o noclobber; echo -e "START $(date)\nPID $$" > .lock); then
-  echo "CANNOT OBTAIN LOCK, EXITING ($(date))"
-  exit 1
-fi
 
 echo "------------------------------------------------------------"
 echo "STARTING ($(date))"
@@ -189,7 +183,5 @@ else
 fi
 
 echo "DONE ($(date))"
-
-rm -f .lock
 
 popd &> /dev/null
