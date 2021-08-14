@@ -23,6 +23,67 @@ case "$opt" in
 esac
 done
 
+NOTIFY_TEAM=dev
+NOTIFY_CHANNEL=town-square
+
+HOST=$(jq -r .brankas.instanceUrl $HOME/.config/mmctl)
+TOKEN=$(jq -r .brankas.authToken $HOME/.config/mmctl)
+
+mmcurl() {
+  local method=$1
+  local url=$HOST/api/v4/$2
+  if [ ! -z "$3" ]; then
+    body="-d"
+  fi
+  curl \
+    -s \
+    -m 30 \
+    -X $method \
+    -H "Content-Type: application/json" \
+    -H "Authorization: Bearer $TOKEN" \
+    $body "$3" \
+    $url
+}
+
+NOTIFY_TEAMID=$(mmcurl GET teams/name/$NOTIFY_TEAM|jq -r '.id')
+NOTIFY_CHANNELID=$(mmcurl GET teams/$NOTIFY_TEAMID/channels/name/$NOTIFY_CHANNEL|jq -r '.id')
+
+mmfile() {
+  local url=$HOST/api/v4/files
+  curl \
+    -s \
+    -H "Authorization: Bearer $TOKEN" \
+    -F "channel_id=$NOTIFY_CHANNELID" \
+    -F "files=@$1" \
+    $url
+}
+
+mmpost() {
+  local message="$1"
+  shift
+  local files=''
+  while (( "$#" )); do
+    files+="\"$1\", "
+    shift
+  done
+  if [ ! -z "$files" ]; then
+    files=$(echo -e ',\n  "file_ids": ['$(sed -e 's/, $//' <<< "$files")']')
+  fi
+  POST=$(cat << END
+{
+  "channel_id": "$NOTIFY_CHANNELID",
+  "message": "$message"$files
+}
+END
+)
+  mmcurl POST posts "$POST"
+}
+
+if [[ -z "$NOTIFY_TEAMID" || -z "$NOTIFY_CHANNELID" ]]; then
+  echo "ERROR: unable to determine NOTIFY_TEAMID or NOTIFY_CHANNELID, exiting ($(date))"
+  exit 1
+fi
+
 set -e
 
 OMAHA="$(curl -s https://omahaproxy.appspot.com/all.json)"
@@ -97,6 +158,22 @@ for CHANNEL in $CHANNELS_ORDER; do
   echo "ENDED BUILD FOR $CHANNEL $VERSION ($(date))"
 done
 
+# publish binary (stable only)
+ARCHIVE=$SRC/out/headless-shell-${VERSIONS[stable]}.tar.bz2
+if [ ! -f $ARCHIVE ]; then
+  echo "MISSING ARCHIVE FOR CHANNEL stable, SKIPPING PUBLISH"
+else
+  if [ -f $ARCHIVE.publish_done ]; then
+    echo "SKIPPING PUBLISH $ARCHIVE"
+  else
+    echo "STARTING PUBLISH ($(date))"
+    ID=$(mmfile "$ARCHIVE"|jq -r '.file_infos[0].id')
+    mmpost 'Built headless-shell `stable` (`'${VERSIONS[stable]}'`)' "$ID"
+    touch $ARCHIVE.publish_done
+    echo -e "\nENDED PUBLISH ($(date))"
+  fi
+fi
+
 # build docker images
 BASEIMAGE=$(grep 'FROM' Dockerfile|awk '{print $2}')
 (set -x;
@@ -148,39 +225,17 @@ for CHANNEL in $CHANNELS_ORDER; do
   done
   touch $ARCHIVE.docker_push_done
 
-  # notify slack
+  # notify
   HASH=$(docker inspect --format='{{index .RepoDigests 0}}' chromedp/headless-shell:$VERSION|awk -F: '{print $2}')
-  LINK=$(printf "https://hub.docker.com/layers/chromedp/headless-shell/%s/images/sha256-%s?context=explore" $VERSION $HASH)
-  TEXT="Pushed headless-shell (${TAGS[@]}) to Docker hub: <$LINK|chromedp/headless-shell:$VERSION>"
-  curl \
-    -s \
-    -X POST \
-    -H "Authorization: Bearer $(cat $HOME/.slack-token)" \
-    -H "Content-Type: application/json" \
-    -d "{\"channel\": \"CGEV595RP\", \"text\": \"$TEXT\", \"as_user\": true}" \
-    https://slack.com/api/chat.postMessage
+  LINK=$(printf 'https://hub.docker.com/layers/chromedp/headless-shell/%s/images/sha256-%s?context=explore' $VERSION $HASH)
+  TAGTEXT=""
+  for TAG in ${TAGS[@]}; do
+    TAGTEXT+='`'$TAG'`, '
+  done
+  mmpost "Pushed headless-shell ($(sed -e 's/, $//' <<< "$TAGTEXT")) to Docker hub: [chromedp/headless-shell:$VERSION]($LINK)"
+
   echo -e "\nENDED DOCKER PUSH FOR CHANNEL $CHANNEL $VERSION ($(date))"
 done
-
-# publish stable binary to slack
-ARCHIVE=$SRC/out/headless-shell-${VERSIONS[stable]}.tar.bz2
-if [ ! -f $ARCHIVE ]; then
-  echo "MISSING ARCHIVE FOR CHANNEL stable, SKIPPING SLACK NOTIFY"
-else
-  if [ -f $ARCHIVE.slack_done ]; then
-    echo "SKIPPING SLACK NOTIFY $ARCHIVE"
-  else
-    echo "STARTING SLACK NOTIFY ($(date))"
-    curl \
-      -s \
-      -F file=@$ARCHIVE \
-      -F channels=CGEV595RP \
-      -H "Authorization: Bearer $(cat $HOME/.slack-token)" \
-      https://slack.com/api/files.upload
-    touch $ARCHIVE.slack_done
-    echo -e "\nENDED SLACK NOTIFY ($(date))"
-  fi
-fi
 
 echo "DONE ($(date))"
 
