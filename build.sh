@@ -2,7 +2,7 @@
 
 # add via `crontab -e`:
 #
-#   05 */3 * * * /usr/bin/flock -w 0 $HOME/src/headless-shell/crontab.lock $HOME/src/headless-shell/crontab.sh -j <JOBS> 2>&1 >> /var/log/headless/headless.log
+#   05 */3 * * * /usr/bin/flock -w 0 $HOME/src/headless-shell/.lock $HOME/src/headless-shell/build.sh -j <JOBS> 2>&1 >> /var/log/build/headless-shell.log
 
 SRC=$(realpath $(cd -P "$(dirname "${BASH_SOURCE[0]}")" && pwd))
 
@@ -232,7 +232,7 @@ for CHANNEL in $CHANNELS_ORDER; do
   for TAG in ${TAGS[@]}; do
     TAGTEXT+='`'$TAG'`, '
   done
-  mmpost "Pushed headless-shell ($(sed -e 's/, $//' <<< "$TAGTEXT")) to Docker hub: [chromedp/headless-shell:$VERSION]($LINK)"
+  mmpost "Pushed chromedp/headless-shell ($(sed -e 's/, $//' <<< "$TAGTEXT")) to Docker hub: [chromedp/headless-shell:$VERSION]($LINK)"
 
   echo -e "\nENDED DOCKER PUSH FOR CHANNEL $CHANNEL $VERSION ($(date))"
 done
