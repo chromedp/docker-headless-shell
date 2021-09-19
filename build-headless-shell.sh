@@ -85,7 +85,7 @@ if [ "$UPDATE" -eq "1" ]; then
   echo "UPDATING $SRC/depot_tools ($(date))"
   pushd $SRC/depot_tools &> /dev/null
   git reset --hard
-  git checkout master
+  git checkout main
   git pull
   popd &> /dev/null
 
@@ -130,8 +130,8 @@ if [ "$UPDATE" -eq "1" ]; then
   done
 
   # update
-  echo "CHANGING TO master ($(date))"
-  git checkout master
+  echo "CHANGING TO main ($(date))"
+  git checkout main
   echo "REBASING TREE ($(date))"
   git rebase-update
 
