@@ -1,4 +1,4 @@
-FROM debian:buster-slim
+FROM debian:bullseye-slim
 ARG VERSION
 RUN \
     apt-get update -y \
