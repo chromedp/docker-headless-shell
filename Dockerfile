@@ -7,10 +7,9 @@ RUN \
 COPY \
     out/$VERSION/headless-shell/headless-shell \
     out/$VERSION/headless-shell/.stamp \
-    /headless-shell/
-COPY \
     out/$VERSION/headless-shell/swiftshader \
-    /headless-shell/swiftshader
+    /headless-shell/
+
 EXPOSE 9222
 ENV PATH /headless-shell:$PATH
 ENTRYPOINT [ "/headless-shell/headless-shell", "--no-sandbox", "--remote-debugging-address=0.0.0.0", "--remote-debugging-port=9222" ]
