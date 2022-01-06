@@ -139,7 +139,7 @@ for CHANNEL in $CHANNELS_ORDER; do
   VERSION=${VERSIONS[$CHANNEL]}
   ARCHIVE=$SRC/out/headless-shell-$VERSION.tar.bz2
   if [ -f $ARCHIVE ]; then
-    echo "SKIPPPING BUILD FOR CHANNEL $CHANNEL $VERSION"
+    echo "SKIPPING BUILD FOR CHANNEL $CHANNEL $VERSION"
     continue;
   fi
   echo "STARTING BUILD FOR CHANNEL $CHANNEL $VERSION ($(date))"
@@ -187,7 +187,7 @@ for CHANNEL in $CHANNELS_ORDER; do
     continue
   fi
   if [ -f $ARCHIVE.docker_build_done ]; then
-    echo "SKIPPPING DOCKER BUILD FOR CHANNEL $CHANNEL $VERSION"
+    echo "SKIPPING DOCKER BUILD FOR CHANNEL $CHANNEL $VERSION"
     continue
   fi
   PARAMS=(-t $CHANNEL)
@@ -214,7 +214,7 @@ for CHANNEL in $CHANNELS_ORDER; do
     continue
   fi
   if [ -f $ARCHIVE.docker_push_done ]; then
-    echo "SKIPPPING DOCKER PUSH FOR CHANNEL $CHANNEL $VERSION"
+    echo "SKIPPING DOCKER PUSH FOR CHANNEL $CHANNEL $VERSION"
     continue
   fi
   echo "STARTING DOCKER PUSH FOR CHANNEL $CHANNEL $VERSION ($(date))"

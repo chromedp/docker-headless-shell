@@ -1,4 +1,4 @@
-FROM debian:buster-slim
+FROM debian:bullseye-slim
 ARG VERSION
 RUN \
     apt-get update -y \
@@ -7,10 +7,8 @@ RUN \
 COPY \
     out/$VERSION/headless-shell/headless-shell \
     out/$VERSION/headless-shell/.stamp \
+    out/$VERSION/headless-shell/*.so \
     /headless-shell/
-COPY \
-    out/$VERSION/headless-shell/swiftshader \
-    /headless-shell/swiftshader
 EXPOSE 9222
 ENV PATH /headless-shell:$PATH
 ENTRYPOINT [ "/headless-shell/headless-shell", "--no-sandbox", "--remote-debugging-address=0.0.0.0", "--remote-debugging-port=9222" ]

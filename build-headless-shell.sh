@@ -213,9 +213,9 @@ fi
 echo $VERSION > $PROJECT/.stamp
 
 # copy files
-mkdir -p $TMPDIR/headless-shell/swiftshader
+mkdir -p $TMPDIR/headless-shell
 cp -a $PROJECT/{headless_shell,chrome_sandbox,.stamp} $TMPDIR/headless-shell
-cp -a $PROJECT/swiftshader/*.so $TMPDIR/headless-shell/swiftshader
+cp -a $PROJECT/swiftshader/*.so $TMPDIR/headless-shell
 
 popd &> /dev/null
 
@@ -224,8 +224,8 @@ pushd $TMPDIR/headless-shell &> /dev/null
 # rename and strip
 mv chrome_sandbox chrome-sandbox
 mv headless_shell headless-shell
-strip headless-shell chrome-sandbox swiftshader/*.so
-chmod -x swiftshader/*.so
+strip headless-shell chrome-sandbox *.so
+chmod -x *.so
 
 # verify headless-shell runs and reports correct version
 ./headless-shell --remote-debugging-port=5000 &> /dev/null & PID=$!
