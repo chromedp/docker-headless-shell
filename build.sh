@@ -26,8 +26,8 @@ done
 NOTIFY_TEAM=dev
 NOTIFY_CHANNEL=town-square
 
-HOST=$(jq -r '.["headless-shell"].instanceUrl' $HOME/.config/mmctl)
-TOKEN=$(jq -r '.["headless-shell"].authToken' $HOME/.config/mmctl)
+HOST=$(jq -r '.["headless-shell"].instanceUrl' $HOME/.config/mmctl/config)
+TOKEN=$(jq -r '.["headless-shell"].authToken' $HOME/.config/mmctl/config)
 
 mmcurl() {
   local method=$1
