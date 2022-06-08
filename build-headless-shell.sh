@@ -185,6 +185,7 @@ if [ "$SYNC" -eq "1" ]; then
   enable_nacl=false
   blink_symbol_level=0
   headless_use_embedded_resources=true
+  headless_use_prefs=true
   " > $PROJECT/args.gn
 
   # generate build files
