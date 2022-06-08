@@ -11,7 +11,7 @@ browsers compatible with the [Chrome Debugging Protocol][devtools-protocol].
 
 The version of `headless-shell` contained in this Docker image has been
 modified from the original Chromium source tree, to report the same user agent
-as Chrome, and has had other minor modifications made to it in order make it
+as Chrome, and has had other minor modifications made to it in order to make it
 better suited for use in an embedded context.
 
 ## Running
@@ -36,8 +36,18 @@ $ docker run -d -p 9222:9222 --rm --name headless-shell --shm-size 2G chromedp/h
 $ docker run -d -p 9222:9222 --user nobody --security-opt seccomp=chrome.json --entrypoint '/headless-shell/headless-shell' chromedp/headless-shell --remote-debugging-address=0.0.0.0 --remote-debugging-port=9222 --disable-gpu --headless
 ```
 
-## Using as a base image
-When using `chromedp/headless-shell` as a base image to build an image that runs your own program, You could experience zombie process problem. To reap zombie processeses, use [`dumb-init`](https://github.com/Yelp/dumb-init) or [`tini`](https://github.com/krallin/tini) on your `Dockerfile`'s `ENTRYPOINT`
+## Zombie processes
+
+When using `chromedp/headless-shell` (either directly or as a base image),
+you could experience zombie processes problem. To reap zombie processes,
+use `docker run`'s `--init` arg:
+
+```bash
+docker run -d -p <PORT>:<PORT> --name <your-program> --init <your-image>
+```
+
+If running Docker older than 1.13.0, use [`dumb-init`][dumb-init] or
+[`tini`][tini] on your `Dockerfile`'s `ENTRYPOINT`
 
 ```dockerfile
 FROM chromedp/headless-shell:latest
@@ -51,11 +61,6 @@ ENTRYPOINT ["dumb-init", "--"]
 CMD ["/path/to/your/program"]
 ```
 
-If running Docker 1.13.0 or later, use `docker run`'s `--init` arg instead to reap zombie processes.
-```bash
-docker run -d -p <PORT>:<PORT> --name <your-program> --init <your-image>
-```
- 
 ## Building and Packaging
 
 The following contains instructions for building and packaging the
@@ -95,5 +100,7 @@ $ ./build-docker.sh 74.0.3717.1
 [docker-headless-shell]: https://hub.docker.com/r/chromedp/headless-shell/
 [devtools-protocol]: https://chromedevtools.github.io/devtools-protocol/
 [chromedp]: https://github.com/chromedp/chromedp
-[building-linux]: https://chromium.googlesource.com/chromium/src/+/master/docs/linux_build_instructions.md
-[building-headless]: https://chromium.googlesource.com/chromium/src/+/master/headless/README.md
+[building-linux]: https://chromium.googlesource.com/chromium/src/+/main/docs/linux/build_instructions.md
+[building-headless]: https://chromium.googlesource.com/chromium/src/+/main/headless/README.md
+[dumb-init]: https://github.com/Yelp/dumb-init
+[tini]: https://github.com/krallin/tini
