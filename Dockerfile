@@ -10,5 +10,6 @@ COPY \
     out/$VERSION/headless-shell/*.so \
     /headless-shell/
 EXPOSE 9222
+ENV LANG en-US.UTF-8
 ENV PATH /headless-shell:$PATH
 ENTRYPOINT [ "/headless-shell/headless-shell", "--no-sandbox", "--remote-debugging-address=0.0.0.0", "--remote-debugging-port=9222" ]
