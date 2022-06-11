@@ -7,8 +7,12 @@ RUN \
 COPY \
     out/$VERSION/headless-shell/headless-shell \
     out/$VERSION/headless-shell/.stamp \
-    out/$VERSION/headless-shell/*.so \
+    out/$VERSION/headless-shell/libEGL.so \
+    out/$VERSION/headless-shell/libGLESv2.so \
+    out/$VERSION/headless-shell/libvk_swiftshader.so \
+    out/$VERSION/headless-shell/libvulkan.so.1 \
+    out/$VERSION/headless-shell/vk_swiftshader_icd.json \
     /headless-shell/
 EXPOSE 9222
 ENV PATH /headless-shell:$PATH
-ENTRYPOINT [ "/headless-shell/headless-shell", "--no-sandbox", "--remote-debugging-address=0.0.0.0", "--remote-debugging-port=9222" ]
+ENTRYPOINT [ "/headless-shell/headless-shell", "--no-sandbox", "--use-gl=angle", "--use-angle=swiftshader", "--remote-debugging-address=0.0.0.0", "--remote-debugging-port=9222" ]

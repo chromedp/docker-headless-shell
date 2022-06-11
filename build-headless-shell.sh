@@ -197,7 +197,7 @@ for i in $(seq 1 $ATTEMPTS); do
   RET=1
   echo "STARTING BUILD ATTEMPT $i FOR $VERSION ($(date))"
   #$SRC/icecc-chromium/icecc-ninja -j $JOBS -C $PROJECT headless_shell chrome_sandbox && RET=$?
-  $SRC/depot_tools/ninja -j $JOBS -C $PROJECT headless_shell chrome_sandbox && RET=$?
+  $SRC/depot_tools/ninja -j $JOBS -C $PROJECT headless_shell && RET=$?
   if [ $RET -eq 0 ]; then
     echo "COMPLETED BUILD ATTEMPT $i FOR $VERSION ($(date))"
     break
@@ -214,18 +214,17 @@ echo $VERSION > $PROJECT/.stamp
 
 # copy files
 mkdir -p $TMPDIR/headless-shell
-cp -a $PROJECT/{headless_shell,chrome_sandbox,.stamp} $TMPDIR/headless-shell
-cp -a $PROJECT/swiftshader/*.so $TMPDIR/headless-shell
+cp -a $PROJECT/{headless_shell,.stamp} $TMPDIR/headless-shell
+cp -a $PROJECT/{libEGL.so,libGLESv2.so,libvk_swiftshader.so,libvulkan.so.1,vk_swiftshader_icd.json} $TMPDIR/headless-shell
 
 popd &> /dev/null
 
 pushd $TMPDIR/headless-shell &> /dev/null
 
 # rename and strip
-mv chrome_sandbox chrome-sandbox
 mv headless_shell headless-shell
-strip headless-shell chrome-sandbox *.so
-chmod -x *.so
+strip headless-shell *.so *.so.1
+chmod -x *.so *.so.1
 
 # verify headless-shell runs and reports correct version
 ./headless-shell --remote-debugging-port=5000 &> /dev/null & PID=$!
