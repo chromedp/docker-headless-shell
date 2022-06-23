@@ -181,9 +181,10 @@ if [ "$SYNC" -eq "1" ]; then
 #  import(\"$SRC/icecc-chromium/icecc.gni\") # icecc parameters (removed)
   echo "import(\"//build/args/headless.gn\")
   is_debug=false
+  is_official_build=true
   symbol_level=0
-  enable_nacl=false
   blink_symbol_level=0
+  enable_nacl=false
   headless_use_embedded_resources=true
   headless_use_prefs=true
   " > $PROJECT/args.gn
