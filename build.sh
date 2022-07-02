@@ -88,7 +88,7 @@ set -e
 
 OMAHA="$(curl -s https://omahaproxy.appspot.com/all.json)"
 if [ -z "$CHANNELS" ]; then
-  CHANNELS=$(jq -r '.[] | select(.os == "win64") | .versions[] | .channel' <<< "$OMAHA"|grep -v 'canary'|tr '\r\n' ' '|sed -e 's/ $//')
+  CHANNELS=$(jq -r '.[] | select(.os == "win64") | .versions[] | .channel | select(. | contains("canary") | not)' <<< "$OMAHA")
 fi
 
 export PATH=$PATH:$HOME/src/misc/chrome/depot_tools
