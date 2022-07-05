@@ -187,6 +187,7 @@ if [ "$SYNC" -eq "1" ]; then
   enable_nacl=false
   headless_use_embedded_resources=true
   headless_use_prefs=true
+  chrome_pgo_phase=0
   " > $PROJECT/args.gn
 
   # generate build files
