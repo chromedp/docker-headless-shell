@@ -1,8 +1,8 @@
-FROM debian:bullseye-slim
+FROM debian:bookworm-slim
 ARG VERSION
 RUN \
     apt-get update -y \
-    && apt-get install -y libnspr4 libnss3 libexpat1 libfontconfig1 libuuid1 \
+    && apt-get install --no-install-recommends -y libnspr4 libnss3 libexpat1 libfontconfig1 libuuid1 \
     && apt-get clean && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
 COPY \
     out/$VERSION/headless-shell/headless-shell \
