@@ -111,6 +111,12 @@ if [ ! -d $BASE/chromium/src ]; then
   fetch --nohooks chromium
   popd &> /dev/null
 
+  # install build deps
+  echo "INSTALLING BUILD DEPS"
+  pushd $BASE/chromium/src &> /dev/null
+  ./build/install-build-deps.sh --arm --no-nacl
+  popd &> /dev/null
+
   # run hooks
   echo "RUNNING GCLIENT HOOKS $BASE/chromium/src ($(date))"
   pushd $BASE/chromium/src &> /dev/null
@@ -188,7 +194,11 @@ if [ "$SYNC" -eq "1" ]; then
   headless_use_embedded_resources=true
   headless_use_prefs=true
   chrome_pgo_phase=0
+  target_cpu=\"arm64\"
   " > $PROJECT/args.gn
+
+  # install sysroot
+  ./build/linux/sysroot_scripts/install-sysroot.py --arch=arm64
 
   # generate build files
   gn gen $PROJECT

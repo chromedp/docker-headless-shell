@@ -43,16 +43,16 @@ if [ "$UPDATE" = "1" ]; then
   )
 fi
 
-PARAMS=(--tag chromedp/headless-shell:$VERSION)
+PARAMS=(--tag louiepascual/headless-shell:$VERSION)
 for TAG in ${TAGS[@]}; do
-  PARAMS+=(--tag chromedp/headless-shell:$TAG)
+  PARAMS+=(--tag louiepascual/headless-shell:$TAG)
 done
 
 (set -x;
   rm -rf $SRC/out/$VERSION
   mkdir -p  $SRC/out/$VERSION
   tar -jxf $SRC/out/headless-shell-$VERSION.tar.bz2 -C $SRC/out/$VERSION/
-  docker build --build-arg VERSION=$VERSION ${PARAMS[@]} --quiet .
+  docker build --build-arg VERSION=$VERSION ${PARAMS[@]} .
 )
 
 popd &> /dev/null

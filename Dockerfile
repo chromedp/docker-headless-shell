@@ -1,4 +1,4 @@
-FROM debian:bullseye-slim
+FROM arm64v8/debian:bookworm-slim
 ARG VERSION
 RUN \
     apt-get update -y \
