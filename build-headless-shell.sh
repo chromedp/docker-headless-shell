@@ -22,9 +22,10 @@ JOBS=$((`nproc` + 2))
 TTL=86400
 UPDATE=0
 VERSION=
+ARCH='amd64'
 
 OPTIND=1
-while getopts "a:b:j:t:uv:" opt; do
+while getopts "a:b:j:t:uv:p:" opt; do
 case "$opt" in
   a) ATTEMPTS=$OPTARG ;;
   b) BASE=$OPTARG ;;
@@ -32,6 +33,7 @@ case "$opt" in
   t) TTL=$OPTARG ;;
   u) UPDATE=1 ;;
   v) VERSION=$OPTARG ;;
+  p) ARCH=$OPTARG ;;
 esac
 done
 
@@ -48,9 +50,9 @@ fi
 
 # determine version
 if [ -z "$VERSION" ]; then
-  VERSION=$(
-    curl -s https://omahaproxy.appspot.com/all.json | \
-      jq -r '.[] | select(.os == "win64") | .versions[] | select(.channel == "stable") | .current_version'
+  SRC_URL="https://versionhistory.googleapis.com/v1/chrome/platforms/linux/channels/stable/versions/"
+  VERSION=$(curl -s "${SRC_URL}" | \
+    jq -r '.versions[0] | .version'
   )
 fi
 
@@ -59,10 +61,11 @@ echo "BASE:     $BASE"
 echo "JOBS:     $JOBS"
 echo "UPDATE:   $UPDATE"
 echo "VERSION:  $VERSION"
+echo "ARCH:     $ARCH"
 
 mkdir -p $SRC/out
-TMPDIR=$(mktemp -d -p /tmp headless-shell-$VERSION.XXXXX)
-ARCHIVE=$SRC/out/headless-shell-$VERSION.tar.bz2
+TMPDIR=$(mktemp -d -p /tmp headless-shell-$VERSION-$ARCH.XXXXX)
+ARCHIVE=$SRC/out/headless-shell-$VERSION-$ARCH.tar.bz2
 echo "TMPDIR:   $TMPDIR"
 echo "ARCHIVE:  $ARCHIVE"
 
@@ -117,6 +120,20 @@ if [ ! -d $BASE/chromium/src ]; then
   gclient runhooks
   popd &> /dev/null
 fi
+
+if [ "$ARCH" =  "arm64" ]; then
+ # install build deps
+ echo "INSTALLING BUILD DEPS (arm64)"
+ pushd $BASE/chromium/src &> /dev/null
+ ./build/install-build-deps.sh --arm --no-nacl
+ popd &> /dev/null
+else
+ echo "INSTALLING BUILD DEPS"
+ pushd $BASE/chromium/src &> /dev/null
+ ./build/install-build-deps.sh
+ popd &> /dev/null
+fi
+
 
 pushd $BASE/chromium/src &> /dev/null
 
@@ -190,6 +207,16 @@ if [ "$SYNC" -eq "1" ]; then
   chrome_pgo_phase=0
   " > $PROJECT/args.gn
 
+
+  if [ "$ARCH" = "arm64" ]; then
+    echo "ADD target_cpu to args.gn (ARM64)"
+    echo "target_cpu=\"arm64\"" >> $PROJECT/args.gn
+    # install sysroot
+    echo "INSTALL SYSROOT (ARM64)"
+    ./build/linux/sysroot_scripts/install-sysroot.py --arch=arm64
+  fi
+
+
   # generate build files
   gn gen $PROJECT
 fi
@@ -226,23 +253,30 @@ pushd $TMPDIR/headless-shell &> /dev/null
 
 # rename and strip
 mv headless_shell headless-shell
-strip headless-shell *.so *.so.1
+if [ "$ARCH" = "arm64" ]; then
+  aarch64-linux-gnu-strip headless-shell *.so *.so.1
+else
+  strip headless-shell *.so *.so.1
+fi
 chmod -x *.so *.so.1
 
-# verify headless-shell runs and reports correct version
-./headless-shell --remote-debugging-port=5000 &> /dev/null & PID=$!
-sleep 1
-BROWSER=$(curl --silent --connect-timeout 5 http://localhost:5000/json/version|jq -r '.Browser')
-kill -s SIGTERM $PID
-set +e
-wait $PID 2>/dev/null
-set -e
-if [ "$BROWSER" != "Chrome/$VERSION" ]; then
-  echo "ERROR: HEADLESS-SHELL REPORTED VERSION '$BROWSER', NOT 'Chrome/$VERSION'!"
-  exit 1
-else
-  echo "HEADLESS SHELL REPORTED VERSION '$BROWSER'"
+if [ "$ARCH" = "amd64" ]; then
+  # verify headless-shell runs and reports correct version
+  ./headless-shell --remote-debugging-port=5000 &> /dev/null & PID=$!
+  sleep 1
+  BROWSER=$(curl --silent --connect-timeout 5 http://localhost:5000/json/version|jq -r '.Browser')
+  kill -s SIGTERM $PID
+  set +e
+  wait $PID 2>/dev/null
+  set -e
+  if [ "$BROWSER" != "Chrome/$VERSION" ]; then
+    echo "ERROR: HEADLESS-SHELL REPORTED VERSION '$BROWSER', NOT 'Chrome/$VERSION'!"
+    exit 1
+  else
+    echo "HEADLESS SHELL REPORTED VERSION '$BROWSER'"
+  fi
 fi
+
 popd &> /dev/null
 
 # remove previous
