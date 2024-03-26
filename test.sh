@@ -28,7 +28,7 @@ NAME=$(basename $IMAGE)-$VERSION-$TARGET
 (set -x;
   podman run \
     --name $NAME \
-    --arch $TARGET \
+    --platform linux/$TARGET \
     --rm \
     --detach \
     --publish $PORT:9222 \

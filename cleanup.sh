@@ -4,47 +4,74 @@ SRC=$(realpath $(cd -P "$(dirname "${BASH_SOURCE[0]}")" && pwd))
 
 OUT=$SRC/out
 IMAGE=docker.io/chromedp/headless-shell
-
-CHANNELS="stable beta dev"
-VERSIONS=
+CHANNELS=()
+VERSIONS=()
+MTIME=30
 
 OPTIND=1
-while getopts "o:i:" opt; do
+while getopts "o:i:c:v:m:" opt; do
 case "$opt" in
   o) OUT=$OPTARG ;;
   i) IMAGE=$OPTARG ;;
+  c) CHANNELS+=($OPTARG) ;;
+  v) VERSIONS+=($OPTARG) ;;
+  m) MTIME=$OPTARG ;;
 esac
 done
 
+if [ ${#CHANNELS[@]} -eq 0 ]; then
+  CHANNELS=(stable)
+fi
+
+if [ ${#VERSIONS[@]} -eq 0 ]; then
+  for CHANNEL in ${CHANNELS[@]}; do
+    VERSIONS+=($(verhist -platform win64 -channel "$CHANNEL" -latest))
+  done
+fi
+
 set -e
 
-echo "CLEANUP KEEP: latest ${CHANNELS[@]} ${VERSIONS[@]}"
+# join_by ',' ${A[@]} ${B[@]}
+join_by() {
+  local d=${1-} f=${2-}
+  if shift 2; then
+    printf %s "$f" "${@/#/$d}"
+  fi
+}
+
+echo -e "KEEP: $(join_by ', ' latest ${CHANNELS[@]} ${VERSIONS[@]})"
 
 # cleanup old directories and files
-#if [ -d $SRC/out ]; then
-#  pushd $SRC/out &> /dev/null
-#  DIRS=$(find . -maxdepth 1 -type d -printf "%f\n"|egrep '^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$'|egrep -v "($(join_by '|' $VERSIONS))"||:)
-#  if [ ! -z "$DIRS" ]; then
-#    (set -x;
-#      rm -rf $DIRS
-#    )
-#  fi
-#  FILES=$(find . -maxdepth 1 -type f -printf "%f\n"|egrep '^headless-shell-[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+\.tar\.bz2'|egrep -v "($(join_by '|' $VERSIONS))"||:)
-#  if [ ! -z "$FILES" ]; then
-#    (set -x;
-#      rm -rf $FILES
-#    )
-#  fi
-#  popd &> /dev/null
-#fi
+if [ -d $OUT ]; then
+  REGEX=".*($(join_by '|' ${VERSIONS[@]})).*"
+  (set -x;
+    find $OUT \
+      -mindepth 1 \
+      -maxdepth 1 \
+      -regextype posix-extended \
+      \( \
+        -type d  \
+        -regex '.*/[0-9]+(\.[0-9]+){3}-(amd64|arm64)$' \
+        -or  \
+        -type f \
+        -regex '.*/headless-shell-[0-9]+(\.[0-9]+){3}-(amd64|arm64)\.tar\.bz2$' \
+      \) \
+      -mtime $MTIME \
+      -not \
+      -regex "$REGEX" \
+      -exec echo REMOVING {} \; \
+      -exec rm -rf {} \;
+  )
+fi
 
 # remove containers
-CONTAINERS=$(podman container ls \
-  --filter=ancestor=$IMAGE \
-  --filter=status=exited \
-  --filter=status=dead \
-  --filter=status=created \
-  --quiet)
+CONTAINERS=$(
+  podman container ls \
+    --filter=ancestor=$IMAGE \
+    --filter=status=exited \
+    --filter=status=created \
+  --quiet
+)
 if [ ! -z "$CONTAINERS" ]; then
   (set -x;
     podman container rm --force $CONTAINERS
@@ -52,11 +79,14 @@ if [ ! -z "$CONTAINERS" ]; then
 fi
 
 # remove images
-IMAGES=$(podman images \
-  --filter=reference=$IMAGE \
-  |sed 1d \
-  |egrep -v "($(join_by '|' latest $CHANNELS $VERSIONS))" \
-  |awk '{print $3}')
+IMAGES=$(
+  podman images \
+    --filter=reference=$IMAGE \
+    --filter=reference=localhost/$(basename $IMAGE) \
+    |sed 1d \
+    |grep -Ev "($(join_by '|' latest ${CHANNELS[@]} ${VERSIONS[@]}))" \
+    |awk '{print $3}'
+)
 if [ ! -z "$IMAGES" ]; then
   (set -x;
     podman rmi --force $IMAGES

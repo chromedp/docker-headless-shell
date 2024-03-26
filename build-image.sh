@@ -3,23 +3,21 @@
 SRC=$(realpath $(cd -P "$(dirname "${BASH_SOURCE[0]}")" && pwd))
 
 OUT=$SRC/out
-TARGETS=
+TARGETS=()
 TAGS=()
-UPDATE=0
 VERSION=
 PUSH=0
 IMAGE=docker.io/chromedp/headless-shell
 
 OPTIND=1
-while getopts "o:t:g:v:m:i:up" opt; do
+while getopts "o:t:g:v:pi:" opt; do
 case "$opt" in
   o) OUT=$OPTARG ;;
-  t) TARGETS=$OPTARG ;;
+  t) TARGETS+=($OPTARG) ;;
   g) TAGS+=($OPTARG) ;;
   v) VERSION=$OPTARG ;;
-  i) IMAGE=$OPTARG ;;
-  u) UPDATE=1 ;;
   p) PUSH=1 ;;
+  i) IMAGE=$OPTARG ;;
 esac
 done
 
@@ -35,32 +33,19 @@ if [ -z "$VERSION" ]; then
 fi
 
 # determine targets
-if [ -z "$TARGETS" ]; then
-  TARGETS=$(ls $OUT/*-${VERSION}-*.bz2|sed -e 's/.*headless-shell-[0-9\.]\+-\([a-z0-9]\+\).*/\1/'|xargs)
+if [ ${#TARGETS[@]} -eq 0 ]; then
+  TARGETS=($(ls $OUT/*-${VERSION}-*.bz2|sed -e 's/.*headless-shell-[0-9\.]\+-\([a-z0-9]\+\).*/\1/'|xargs))
 fi
 
 set -e
 
 TAGS=($VERSION ${TAGS[@]})
 
-echo "VERSION:  $VERSION [$TARGETS]"
+echo "VERSION:  $VERSION [${TARGETS[@]}]"
 echo "IMAGE:    $IMAGE [${TAGS[@]}]"
 
-if [ "$UPDATE" = "1" ]; then
-  # update base image
-  BASEIMAGE=$(grep 'FROM' Dockerfile|awk '{print $2}')
-  echo -e "\n\nPULLING $BASEIMAGE [$TARGETS] ($(date))"
-  for TARGET in $TARGETS; do
-    (set -x;
-      buildah pull \
-        --platform linux/$TARGET \
-        $BASEIMAGE
-    )
-  done
-fi
-
 IMAGES=()
-for TARGET in $TARGETS; do
+for TARGET in ${TARGETS[@]}; do
   NAME=localhost/$(basename $IMAGE):$VERSION-$TARGET
   echo -e "\n\nBUILDING $NAME ($(date))"
   ARCHIVE=$OUT/headless-shell-$VERSION-$TARGET.tar.bz2
@@ -91,7 +76,7 @@ for TAG in ${TAGS[@]}; do
     buildah manifest create $NAME \
       ${IMAGES[@]}
   )
-  if [ "$PUSH" = "1" ]; then
+  if [ $PUSH -eq 1 ]; then
     REPO=$(sed -e 's%^docker\.io/%%' <<< "$IMAGE")
     (set -x;
       buildah manifest push \

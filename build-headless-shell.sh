@@ -11,7 +11,7 @@ JOBFAIL=30
 DRYRUN=
 TTL=86400
 UPDATE=0
-TARGETS="amd64"
+TARGETS=()
 VERSION=
 
 OPTIND=1
@@ -26,12 +26,17 @@ case "$opt" in
   n) DRYRUN=-n ;;
   l) TTL=$OPTARG ;;
   u) UPDATE=1 ;;
-  t) TARGETS=$OPTARG ;;
+  t) TARGETS+=($OPTARG) ;;
   v) VERSION=$OPTARG ;;
 esac
 done
 
 set -e
+
+# determine targets
+if [ ${#TARGETS[@]} -eq 0 ]; then
+  TARGETS=(amd64)
+fi
 
 # determine version
 if [ -z "$VERSION" ]; then
@@ -70,7 +75,7 @@ if [ "$((`date +%s` - $LAST))" -gt $TTL ]; then
   UPDATE=1
 fi
 
-echo "BUILD:    $VERSION [$TARGETS] (u:$UPDATE j:$JOBS a:$ATTEMPTS)"
+echo "BUILD:    $VERSION [${TARGETS[@]}] (u:$UPDATE j:$JOBS a:$ATTEMPTS)"
 echo "SOURCE:   $SRCDIR/chromium/src"
 
 TMPDIR=$(mktemp -d -p /tmp headless-shell-$VERSION.XXXXX)
@@ -122,16 +127,10 @@ useragent_files() {
 # update chromium source tree
 if [ "$UPDATE" -eq "1" ]; then
   echo -e "\n\nREBASING ($(date))"
+  USERAGENT_FILES=$(useragent_files)
   (set -x;
-    git -C $CHROMESRC reset --hard
-    git -C $CHROMESRC clean \
-      -f -x -d \
-      -e build \
-      -e buildtools \
-      -e third_party \
-      -e tools \
-      -e components/zucchini \
-      -e out
+    git -C $CHROMESRC checkout $USERAGENT_FILES
+    git -C $CHROMESRC checkout main
     git -C $CHROMESRC rebase-update
   )
   date +%s > $OUT/last
@@ -169,7 +168,7 @@ if [ "$SYNC" -eq "1" ]; then
 fi
 
 # build targets
-for TARGET in $TARGETS; do
+for TARGET in ${TARGETS[@]}; do
   NAME=headless-shell-$CHANNEL-$TARGET
   PROJECT=$CHROMESRC/out/$NAME
   mkdir -p $PROJECT
@@ -227,7 +226,7 @@ $EXTRA
 done
 
 # package
-for TARGET in $TARGETS; do
+for TARGET in ${TARGETS[@]}; do
   PROJECT=$CHROMESRC/out/headless-shell-$CHANNEL-$TARGET
   WORKDIR=$TMPDIR/headless-shell
 

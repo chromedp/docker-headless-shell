@@ -2,4 +2,4 @@
 Description="headless-shell build"
 
 [Service]
-ExecStart=/home/user/src/headless-shell/build.sh -j 14 -u
+ExecStart=/home/user/src/headless-shell/build.sh -j 14

@@ -1,8 +1,8 @@
 [Unit]
-Description="headless-shell build daily at 2:30am"
+Description="headless-shell build daily at 2:15am"
 
 [Timer]
-OnCalendar=*-*-* 02:30:00
+OnCalendar=*-*-* 02:15:00
 Unit=headless-shell.service
 
 [Install]
