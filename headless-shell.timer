@@ -1,0 +1,9 @@
+[Unit]
+Description="headless-shell build daily at 2:30am"
+
+[Timer]
+OnCalendar=*-*-* 02:30:00
+Unit=headless-shell.service
+
+[Install]
+WantedBy=multi-user.target

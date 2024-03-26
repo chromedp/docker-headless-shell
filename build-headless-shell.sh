@@ -4,6 +4,7 @@ SRC=$(realpath $(cd -P "$(dirname "${BASH_SOURCE[0]}")" && pwd))
 
 OUT=
 SRCDIR=
+CHANNEL=stable
 ATTEMPTS=10
 JOBS=$((`nproc` + 2))
 JOBFAIL=30
@@ -14,10 +15,11 @@ TARGETS="amd64"
 VERSION=
 
 OPTIND=1
-while getopts "o:s:a:j:k:nl:ut:v:" opt; do
+while getopts "o:s:c:a:j:k:nl:ut:v:" opt; do
 case "$opt" in
   o) OUT=$OPTARG ;;
   s) SRCDIR=$OPTARG ;;
+  c) CHANNEL=$OPTARG ;;
   a) ATTEMPTS=$OPTARG ;;
   j) JOBS=$OPTARG ;;
   k) JOBFAIL=$OPTARG ;;
@@ -33,7 +35,7 @@ set -e
 
 # determine version
 if [ -z "$VERSION" ]; then
-  VERSION=$(verhist -platform win64 -channel stable -latest)
+  VERSION=$(verhist -platform win64 -channel $CHANNEL -latest)
 fi
 
 # determine out dir
@@ -120,10 +122,16 @@ useragent_files() {
 # update chromium source tree
 if [ "$UPDATE" -eq "1" ]; then
   echo -e "\n\nREBASING ($(date))"
-  USERAGENT_FILES=$(useragent_files)
   (set -x;
-    git -C $CHROMESRC checkout $USERAGENT_FILES
-    git -C $CHROMESRC checkout main
+    git -C $CHROMESRC reset --hard
+    git -C $CHROMESRC clean \
+      -f -x -d \
+      -e build \
+      -e buildtools \
+      -e third_party \
+      -e tools \
+      -e components/zucchini \
+      -e out
     git -C $CHROMESRC rebase-update
   )
   date +%s > $OUT/last
@@ -144,7 +152,6 @@ if [ "$SYNC" -eq "1" ]; then
     git -C $CHROMESRC checkout $USERAGENT_FILES
     git -C $CHROMESRC checkout $VERSION
   )
-
   pushd $CHROMESRC &> /dev/null
   (set -x;
     gclient sync \
@@ -152,8 +159,9 @@ if [ "$SYNC" -eq "1" ]; then
       --with_tags \
       --delete_unversioned_trees \
       --reset
+    ./build/linux/sysroot_scripts/install-sysroot.py --arch=arm64
   )
-  # alter the HeadlessChrome user agent string
+  # alter the user agent string
   for f in $(useragent_files); do
     perl -pi -e 's/"HeadlessChrome"/"Chrome"/' $f
   done
@@ -162,10 +170,9 @@ fi
 
 # build targets
 for TARGET in $TARGETS; do
-  NAME=headless-shell-$TARGET
+  NAME=headless-shell-$CHANNEL-$TARGET
   PROJECT=$CHROMESRC/out/$NAME
   mkdir -p $PROJECT
-
 
   # generate build files
   echo -e "\n\nGENERATING $TARGET $VERSION -> $PROJECT ($(date))"
@@ -221,21 +228,25 @@ done
 
 # package
 for TARGET in $TARGETS; do
-  PROJECT=$CHROMESRC/out/headless-shell-$TARGET
+  PROJECT=$CHROMESRC/out/headless-shell-$CHANNEL-$TARGET
   WORKDIR=$TMPDIR/headless-shell
-
-  # copy files
-  mkdir -p $WORKDIR
-  cp -a $PROJECT/headless_shell $WORKDIR/headless-shell
-  cp -a $PROJECT/{.stamp,libEGL.so,libGLESv2.so,libvk_swiftshader.so,libvulkan.so.1,vk_swiftshader_icd.json} $WORKDIR
 
   # strip
   STRIP=strip
   if [ "$TARGET" = "arm64" ]; then
     STRIP=aarch64-linux-gnu-strip
   fi
-  $STRIP $WORKDIR/headless-shell $WORKDIR/*.so{,.1}
-  chmod -x $WORKDIR/*.so{,.1}
+
+  # copy files
+  mkdir -p $WORKDIR
+  (set -x;
+    cp -a $PROJECT/headless_shell $WORKDIR/headless-shell
+    cp -a $PROJECT/{.stamp,libEGL.so,libGLESv2.so,libvk_swiftshader.so,libvulkan.so.1,vk_swiftshader_icd.json} $WORKDIR
+    $STRIP $WORKDIR/headless-shell $WORKDIR/*.so{,.1}
+    chmod -x $WORKDIR/*.so{,.1}
+    du -s $WORKDIR/*
+    file $WORKDIR/headless-shell
+  )
 
   if [ "$TARGET" = "amd64" ]; then
     # verify headless-shell runs and reports correct version
@@ -259,6 +270,6 @@ for TARGET in $TARGETS; do
   (set -x;
     rm -f $ARCHIVE
     tar -C $TMPDIR -cjf $ARCHIVE headless-shell
-    du -sh $ARCHIVE
+    du -s $ARCHIVE
   )
 done
