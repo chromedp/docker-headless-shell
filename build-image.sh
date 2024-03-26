@@ -53,7 +53,7 @@ if [ "$UPDATE" = "1" ]; then
   for TARGET in $TARGETS; do
     (set -x;
       buildah pull \
-        --arch $TARGET \
+        --platform linux/$TARGET \
         $BASEIMAGE
     )
   done
@@ -82,26 +82,22 @@ for TARGET in $TARGETS; do
   IMAGES+=($NAME)
 done
 
-echo -e "\n\nCREATING MANIFEST $IMAGE:$VERSION ($(date))"
-
 for TAG in ${TAGS[@]}; do
-  NAME=$IMAGE:$TAG
+  NAME=localhost/$(basename $IMAGE):$TAG
+  echo -e "\n\nCREATING MANIFEST $NAME ($(date))"
   (set -x;
     buildah manifest exists $NAME \
       && buildah manifest rm $NAME
-
     buildah manifest create $NAME \
       ${IMAGES[@]}
   )
-done
-
-if [ "$PUSH" = "1" ]; then
-  for TAG in ${TAGS[@]}; do
+  if [ "$PUSH" = "1" ]; then
+    REPO=$(sed -e 's%^docker\.io/%%' <<< "$IMAGE")
     (set -x;
       buildah manifest push \
         --all \
-        $MANIFEST \
-        docker:$IMAGE:$TAG
+        $NAME \
+        docker://$REPO:$TAG
     )
-  done
-fi
+  fi
+done
