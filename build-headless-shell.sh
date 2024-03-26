@@ -1,146 +1,134 @@
 #!/bin/bash
 
-# setup:
-#
-# 1. install icecc + cccahe, and enable scheduler:
-#
-#   sudo aptitude install icecc ccache
-#   sudo systemctl enable icecc-scheduler.service
-#   sudo systemctl start icecc-scheduler.service
-#
-# 2. manually add custom_hooks to /media/src/chromium/.gclient:
-#
-#   "custom_hooks": [ {"pattern": ".", "action": ["icecc-create-env.py"] } ]
-#
-# for full instructions, see: https://github.com/lilles/icecc-chromium
-
 SRC=$(realpath $(cd -P "$(dirname "${BASH_SOURCE[0]}")" && pwd))
 
+OUT=
+SRCDIR=
 ATTEMPTS=10
-BASE=/media/src
 JOBS=$((`nproc` + 2))
+JOBFAIL=30
+DRYRUN=
 TTL=86400
 UPDATE=0
+TARGETS="amd64"
 VERSION=
 
 OPTIND=1
-while getopts "a:b:j:t:uv:" opt; do
+while getopts "o:s:a:j:k:nl:ut:v:" opt; do
 case "$opt" in
+  o) OUT=$OPTARG ;;
+  s) SRCDIR=$OPTARG ;;
   a) ATTEMPTS=$OPTARG ;;
-  b) BASE=$OPTARG ;;
   j) JOBS=$OPTARG ;;
-  t) TTL=$OPTARG ;;
+  k) JOBFAIL=$OPTARG ;;
+  n) DRYRUN=-n ;;
+  l) TTL=$OPTARG ;;
   u) UPDATE=1 ;;
+  t) TARGETS=$OPTARG ;;
   v) VERSION=$OPTARG ;;
 esac
 done
 
 set -e
 
+# determine version
+if [ -z "$VERSION" ]; then
+  VERSION=$(verhist -platform win64 -channel stable -latest)
+fi
+
+# determine out dir
+if [ -z "$OUT" ]; then
+  OUT=$(realpath "$SRC/out")
+fi
+
+# determine source dir
+if [ -z "$SRCDIR" ]; then
+  if [ -d /media/src ]; then
+    SRCDIR=/media/src
+  else
+    SRCDIR=$OUT
+  fi
+fi
+
+# check source directory exists
+if [ ! -d "$SRCDIR" ]; then
+  echo "ERROR: $SRCDIR does not exist!"
+  exit 1
+fi
+
+# create out dir
+mkdir -p $OUT
+
 # determine last update state
 LAST=0
-if [ -e $SRC/.last ]; then
-  LAST=$(cat $SRC/.last)
+if [ -e $OUT/last ]; then
+  LAST=$(cat $OUT/last)
 fi
 if [ "$((`date +%s` - $LAST))" -gt $TTL ]; then
   UPDATE=1
 fi
 
-# determine version
-if [ -z "$VERSION" ]; then
-  VERSION=$(
-    curl -s https://omahaproxy.appspot.com/all.json | \
-      jq -r '.[] | select(.os == "win64") | .versions[] | select(.channel == "stable") | .current_version'
+echo "BUILD:    $VERSION [$TARGETS] (u:$UPDATE j:$JOBS a:$ATTEMPTS)"
+echo "SOURCE:   $SRCDIR/chromium/src"
+
+TMPDIR=$(mktemp -d -p /tmp headless-shell-$VERSION.XXXXX)
+echo "TMPDIR:   $TMPDIR"
+
+# grab depot_tools
+if [ ! -d $OUT/depot_tools ]; then
+  echo -e "\n\nRETRIEVING depot_tools ($(date))"
+  (set -x;
+    git clone https://chromium.googlesource.com/chromium/tools/depot_tools.git $OUT/depot_tools
   )
 fi
 
-echo "ATTEMPTS: $ATTEMPTS"
-echo "BASE:     $BASE"
-echo "JOBS:     $JOBS"
-echo "UPDATE:   $UPDATE"
-echo "VERSION:  $VERSION"
-
-mkdir -p $SRC/out
-TMPDIR=$(mktemp -d -p /tmp headless-shell-$VERSION.XXXXX)
-ARCHIVE=$SRC/out/headless-shell-$VERSION.tar.bz2
-echo "TMPDIR:   $TMPDIR"
-echo "ARCHIVE:  $ARCHIVE"
-
-# grab depot_tools
-if [ ! -d $SRC/depot_tools ]; then
-  pushd $SRC &> /dev/null
-  git clone https://chromium.googlesource.com/chromium/tools/depot_tools.git
-  popd &> /dev/null
-fi
-
-# grab icecc-chromium
-#if [ ! -d $SRC/icecc-chromium ]; then
-#  pushd $SRC &> /dev/null
-#  git clone https://github.com/lilles/icecc-chromium.git
-#  popd &> /dev/null
-#fi
-
-# update to latest depot_tools and icecc-chromium
+# update to latest depot_tools
 if [ "$UPDATE" -eq "1" ]; then
-  echo "UPDATING $SRC/depot_tools ($(date))"
-  pushd $SRC/depot_tools &> /dev/null
-  git reset --hard
-  git checkout main
-  git pull
-  popd &> /dev/null
-
-#  echo "UPDATING $SRC/icecc-chromium ($(date))"
-#  pushd $SRC/icecc-chromium
-#  git reset --hard
-#  git checkout master
-#  git pull
-#  popd &> /dev/null
+  echo -e "\n\nUPDATING $OUT/depot_tools ($(date))"
+  (set -x;
+    git -C $OUT/depot_tools reset --hard
+    git -C $OUT/depot_tools checkout main
+    git -C $OUT/depot_tools pull
+  )
 fi
 
-export PATH=$SRC/depot_tools:$PATH
-#export PATH=$SRC/depot_tools:$SRC/icecc-chromium:$PATH
-#source $SRC/icecc-chromium/ccache-env
+# add depot_tools to path
+export PATH=$OUT/depot_tools:$PATH
 
-mkdir -p $BASE/chromium
+CHROMESRC=$SRCDIR/chromium/src
 
 # retrieve chromium source tree
-if [ ! -d $BASE/chromium/src ]; then
-  echo "RETRIEVING $BASE/chromium/src ($(date))"
-  # retrieve
-  pushd $BASE/chromium &> /dev/null
-  fetch --nohooks chromium
-  popd &> /dev/null
-
-  # run hooks
-  echo "RUNNING GCLIENT HOOKS $BASE/chromium/src ($(date))"
-  pushd $BASE/chromium/src &> /dev/null
-  gclient runhooks
+if [ ! -d $CHROMESRC ]; then
+  echo -e "\n\nRETRIEVING chromium -> $CHROMESRC ($(date))"
+  pushd $SRCDIR &> /dev/null
+  (set -x;
+    fetch --nohooks chromium
+    gclient runhooks
+  )
   popd &> /dev/null
 fi
 
-pushd $BASE/chromium/src &> /dev/null
+useragent_files() {
+  find $CHROMESRC/headless -type f -iname \*.cc -print0 \
+    |xargs -r0 grep -EHi '"(Headless)?Chrome"' \
+    |awk -F: '{print $1}' \
+    |sed -e "s%^$CHROMESRC/%%" \
+    |sort \
+    |uniq
+}
 
 # update chromium source tree
 if [ "$UPDATE" -eq "1" ]; then
-  # files in headless that contain the HeadlessChrome user-agent string
-  USERAGENT_FILES=$(find ./headless/ -type f -iname \*.cc -print0|xargs -r0 egrep -Hi '"(Headless)?Chrome"'|awk -F: '{print $1}'|sort|uniq)
-  echo "RESETTING FILES $USERAGENT_FILES ($(date))"
-  for f in $USERAGENT_FILES; do
-    git checkout $f
-  done
-
-  # update
-  echo "CHANGING TO main ($(date))"
-  git checkout main
-  echo "REBASING TREE ($(date))"
-  git rebase-update
-
-  # mark last
-  date +%s > $SRC/.last
-  echo "NEW LAST: $(cat $SRC/.last) ($(date))"
+  echo -e "\n\nREBASING ($(date))"
+  USERAGENT_FILES=$(useragent_files)
+  (set -x;
+    git -C $CHROMESRC checkout $USERAGENT_FILES
+    git -C $CHROMESRC checkout main
+    git -C $CHROMESRC rebase-update
+  )
+  date +%s > $OUT/last
+  echo "LAST: $(cat $OUT/last) ($(date))"
 fi
-
-PROJECT=out/headless-shell
 
 # determine sync status
 SYNC=$UPDATE
@@ -149,106 +137,128 @@ if [ "$VERSION" != "$(git name-rev --tags --name-only $(git rev-parse HEAD))" ];
 fi
 
 if [ "$SYNC" -eq "1" ]; then
+  echo -e "\n\nRESETTING $VERSION ($(date))"
   # files in headless that contain the HeadlessChrome user-agent string
-  USERAGENT_FILES=$(find ./headless/ -type f -iname \*.cc -print0|xargs -r0 egrep -Hi '"(Headless)?Chrome"'|awk -F: '{print $1}'|sort|uniq)
-  echo "RESETTING FILES $USERAGENT_FILES ($(date))"
-  for f in $USERAGENT_FILES; do
-    git checkout $f
-  done
+  USERAGENT_FILES=$(useragent_files)
+  (set -x;
+    git -C $CHROMESRC checkout $USERAGENT_FILES
+    git -C $CHROMESRC checkout $VERSION
+  )
 
-  # checkout and sync third-party dependencies
-  echo "CHECKING OUT $VERSION ($(date))"
-  git checkout $VERSION
-
-  echo "GCLIENT SYNC $VERSION ($(date))"
-  gclient sync \
-    --with_branch_heads \
-    --with_tags \
-    --delete_unversioned_trees \
-    --reset
-
-  # change user-agent
-  # files in headless that contain the HeadlessChrome user-agent string
-  USERAGENT_FILES=$(find ./headless/ -type f -iname \*.cc -print0|xargs -r0 egrep -Hi '"(Headless)?Chrome"'|awk -F: '{print $1}'|sort|uniq)
-  for f in $USERAGENT_FILES; do
+  pushd $CHROMESRC &> /dev/null
+  (set -x;
+    gclient sync \
+      --with_branch_heads \
+      --with_tags \
+      --delete_unversioned_trees \
+      --reset
+  )
+  # alter the HeadlessChrome user agent string
+  for f in $(useragent_files); do
     perl -pi -e 's/"HeadlessChrome"/"Chrome"/' $f
   done
+  popd &> /dev/null
+fi
 
-  # ensure build directory exists
+# build targets
+for TARGET in $TARGETS; do
+  NAME=headless-shell-$TARGET
+  PROJECT=$CHROMESRC/out/$NAME
   mkdir -p $PROJECT
 
-  # gn build args
-#  import(\"$SRC/icecc-chromium/icecc.gni\") # icecc parameters (removed)
-  echo "import(\"//build/args/headless.gn\")
-  is_debug=false
-  is_official_build=true
-  symbol_level=0
-  blink_symbol_level=0
-  enable_nacl=false
-  headless_use_embedded_resources=true
-  headless_use_prefs=true
-  chrome_pgo_phase=0
-  " > $PROJECT/args.gn
 
   # generate build files
-  gn gen $PROJECT
-fi
+  echo -e "\n\nGENERATING $TARGET $VERSION -> $PROJECT ($(date))"
 
-# build
-RET=1
-for i in $(seq 1 $ATTEMPTS); do
-  RET=1
-  echo "STARTING BUILD ATTEMPT $i FOR $VERSION ($(date))"
-  #$SRC/icecc-chromium/icecc-ninja -j $JOBS -C $PROJECT headless_shell chrome_sandbox && RET=$?
-  $SRC/depot_tools/ninja -j $JOBS -C $PROJECT headless_shell && RET=$?
-  if [ $RET -eq 0 ]; then
-    echo "COMPLETED BUILD ATTEMPT $i FOR $VERSION ($(date))"
-    break
+  EXTRA=
+  if [ "$TARGET" = "arm64" ]; then
+    EXTRA="target_cpu = \"arm64\""
   fi
-  echo "BUILD ATTEMPT $i FOR $VERSION FAILED ($(date))"
+  echo "import(\"//build/args/headless.gn\")
+is_debug = false
+is_official_build = true
+symbol_level = 0
+blink_symbol_level = 0
+headless_use_prefs = true
+chrome_pgo_phase = 0
+$EXTRA
+" > $PROJECT/args.gn
+
+  pushd $CHROMESRC &> /dev/null
+  (set -x;
+    gn gen ./out/$NAME
+  )
+  popd &> /dev/null
+
+  # build
+  RET=1
+  for i in $(seq 1 $ATTEMPTS); do
+    echo -e "\n\nSTARTING BUILD ATTEMPT $i FOR $TARGET $VERSION ($(date))"
+
+    RET=1
+    $OUT/depot_tools/ninja \
+      -j $JOBS \
+      -k $JOBFAIL \
+      $DRYRUN \
+      -C $PROJECT \
+      headless_shell && RET=$?
+
+    if [ $RET -eq 0 ]; then
+      echo "COMPLETED BUILD ATTEMPT $i FOR $TARGET $VERSION ($(date))"
+      break
+    fi
+    echo "BUILD ATTEMPT $i FOR $TARGET $VERSION FAILED ($(date))"
+  done
+
+  if [ $RET -ne 0 ]; then
+    echo -e "\n\nERROR: COULD NOT COMPLETE BUILD FOR $TARGET $VERSION, BUILD ATTEMPTS HAVE BEEN EXHAUSTED ($(date))"
+    exit 1
+  fi
+
+  # build stamp
+  echo $VERSION > $PROJECT/.stamp
 done
-if [ $RET -ne 0 ]; then
-  echo "ERROR: COULD NOT COMPLETE BUILD FOR $VERSION ($(date))"
-  exit 1
-fi
 
-# build stamp
-echo $VERSION > $PROJECT/.stamp
+# package
+for TARGET in $TARGETS; do
+  PROJECT=$CHROMESRC/out/headless-shell-$TARGET
+  WORKDIR=$TMPDIR/headless-shell
 
-# copy files
-mkdir -p $TMPDIR/headless-shell
-cp -a $PROJECT/{headless_shell,.stamp} $TMPDIR/headless-shell
-cp -a $PROJECT/{libEGL.so,libGLESv2.so,libvk_swiftshader.so,libvulkan.so.1,vk_swiftshader_icd.json} $TMPDIR/headless-shell
+  # copy files
+  mkdir -p $WORKDIR
+  cp -a $PROJECT/headless_shell $WORKDIR/headless-shell
+  cp -a $PROJECT/{.stamp,libEGL.so,libGLESv2.so,libvk_swiftshader.so,libvulkan.so.1,vk_swiftshader_icd.json} $WORKDIR
 
-popd &> /dev/null
+  # strip
+  STRIP=strip
+  if [ "$TARGET" = "arm64" ]; then
+    STRIP=aarch64-linux-gnu-strip
+  fi
+  $STRIP $WORKDIR/headless-shell $WORKDIR/*.so{,.1}
+  chmod -x $WORKDIR/*.so{,.1}
 
-pushd $TMPDIR/headless-shell &> /dev/null
+  if [ "$TARGET" = "amd64" ]; then
+    # verify headless-shell runs and reports correct version
+    $WORKDIR/headless-shell --remote-debugging-port=5000 &> /dev/null & PID=$!
+    sleep 1
+    UA=$(curl --silent --connect-timeout 5 http://localhost:5000/json/version|jq -r '.Browser')
+    kill -s SIGTERM $PID
+    set +e
+    wait $PID 2>/dev/null
+    set -e
+    if [ "$UA" != "Chrome/$VERSION" ]; then
+      echo -e "\n\nERROR: HEADLESS-SHELL REPORTED VERSION '$UA', NOT 'Chrome/$VERSION'! ($(date))"
+      exit 1
+    else
+      echo -e "\n\nHEADLESS SHELL REPORTED VERSION '$UA' ($(date))"
+    fi
+  fi
 
-# rename and strip
-mv headless_shell headless-shell
-strip headless-shell *.so *.so.1
-chmod -x *.so *.so.1
-
-# verify headless-shell runs and reports correct version
-./headless-shell --remote-debugging-port=5000 &> /dev/null & PID=$!
-sleep 1
-BROWSER=$(curl --silent --connect-timeout 5 http://localhost:5000/json/version|jq -r '.Browser')
-kill -s SIGTERM $PID
-set +e
-wait $PID 2>/dev/null
-set -e
-if [ "$BROWSER" != "Chrome/$VERSION" ]; then
-  echo "ERROR: HEADLESS-SHELL REPORTED VERSION '$BROWSER', NOT 'Chrome/$VERSION'!"
-  exit 1
-else
-  echo "HEADLESS SHELL REPORTED VERSION '$BROWSER'"
-fi
-popd &> /dev/null
-
-# remove previous
-rm -f $ARCHIVE
-
-# package tar
-pushd $TMPDIR &> /dev/null
-tar -cjf $ARCHIVE headless-shell
-popd &> /dev/null
+  ARCHIVE=$OUT/headless-shell-$VERSION-$TARGET.tar.bz2
+  echo -e "\n\nPACKAGING $ARCHIVE ($(date))"
+  (set -x;
+    rm -f $ARCHIVE
+    tar -C $TMPDIR -cjf $ARCHIVE headless-shell
+    du -sh $ARCHIVE
+  )
+done

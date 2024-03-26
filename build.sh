@@ -6,95 +6,47 @@
 
 SRC=$(realpath $(cd -P "$(dirname "${BASH_SOURCE[0]}")" && pwd))
 
+OUT=$SRC/out
+SRCDIR=
 ATTEMPTS=10
-BASE=/media/src
-CHANNELS=
 CLEANUP=1
 JOBS=$((`nproc` + 2))
+JOBFAIL=30
+DRYRUN=
+UPDATE=
+CHANNELS="stable beta dev"
+TARGETS="amd64 arm64"
+IMAGE=docker.io/chromedp/headless-shell
+URL='https://hub.docker.com/layers/chromedp/headless-shell/%s/images/sha256-%s?context=explore'
 
 OPTIND=1
-while getopts "a:b:c:Cj:" opt; do
+while getopts "o:s:da:j:k:nuc:t:i:l:" opt; do
 case "$opt" in
+  o) OUT=$OPTARG ;;
+  s) SRCDIR=$OPTARG ;;
+  d) CLEANUP=0 ;;
   a) ATTEMPTS=$OPTARG ;;
-  b) BASE=$OPTARG ;;
-  c) CHANNELS=$OPTARG ;;
-  C) CLEANUP=0 ;;
   j) JOBS=$OPTARG ;;
+  k) JOBFAIL=$OPTARG ;;
+  n) DRYRUN=-n ;;
+  u) UPDATE=-u ;;
+  c) CHANNELS=$OPTARG ;;
+  t) TARGETS=$OPTARG ;;
+  i) IMAGE=$OPTARG ;;
+  l) URL=$OPTARG ;;
 esac
 done
 
-NOTIFY_TEAM=dev
-NOTIFY_CHANNEL=town-square
-
-HOST=$(jq -r '.["headless-shell"].instanceUrl' $HOME/.config/mmctl/config)
-TOKEN=$(jq -r '.["headless-shell"].authToken' $HOME/.config/mmctl/config)
-
-mmcurl() {
-  local method=$1
-  local url=$HOST/api/v4/$2
-  if [ ! -z "$3" ]; then
-    body="-d"
+# determine source dir
+if [ -z "$SRCDIR" ]; then
+  if [ -d /media/src ]; then
+    SRCDIR=/media/src
+  else
+    SRCDIR=$OUT
   fi
-  curl \
-    -s \
-    -m 30 \
-    -X $method \
-    -H "Content-Type: application/json" \
-    -H "Authorization: Bearer $TOKEN" \
-    $body "$3" \
-    $url
-}
-
-NOTIFY_TEAMID=$(mmcurl GET teams/name/$NOTIFY_TEAM|jq -r '.id')
-NOTIFY_CHANNELID=$(mmcurl GET teams/$NOTIFY_TEAMID/channels/name/$NOTIFY_CHANNEL|jq -r '.id')
-
-mmfile() {
-  local url=$HOST/api/v4/files
-  curl \
-    -s \
-    -H "Authorization: Bearer $TOKEN" \
-    -F "channel_id=$NOTIFY_CHANNELID" \
-    -F "files=@$1" \
-    $url
-}
-
-mmpost() {
-  local message="$1"
-  shift
-  local files=''
-  while (( "$#" )); do
-    files+="\"$1\", "
-    shift
-  done
-  if [ ! -z "$files" ]; then
-    files=$(echo -e ',\n  "file_ids": ['$(sed -e 's/, $//' <<< "$files")']')
-  fi
-  POST=$(cat << END
-{
-  "channel_id": "$NOTIFY_CHANNELID",
-  "message": "$message"$files
-}
-END
-)
-  mmcurl POST posts "$POST"
-}
-
-if [[ -z "$NOTIFY_TEAMID" || -z "$NOTIFY_CHANNELID" ]]; then
-  echo "ERROR: unable to determine NOTIFY_TEAMID or NOTIFY_CHANNELID, exiting ($(date))"
-  exit 1
 fi
 
 set -e
-
-OMAHA="$(curl -s https://omahaproxy.appspot.com/all.json)"
-if [ -z "$CHANNELS" ]; then
-  CHANNELS=$(jq -r '.[] | select(.os == "win64") | .versions[] | .channel | select(. | contains("canary") | not)' <<< "$OMAHA")
-fi
-
-export PATH=$PATH:$HOME/src/misc/chrome/depot_tools
-export CHROMIUM_BUILDTOOLS_PATH=/media/src/chromium/src/buildtools
-
-pushd $SRC &> /dev/null
 
 echo "------------------------------------------------------------"
 echo "STARTING ($(date))"
@@ -102,8 +54,7 @@ echo "STARTING ($(date))"
 # retrieve channel versions
 declare -A VERSIONS
 for CHANNEL in $CHANNELS; do
-  VERSION=$(jq -r '.[] | select(.os == "win64") | .versions[] | select(.channel == "'$CHANNEL'") | .current_version' <<< "$OMAHA")
-  VERSIONS[$CHANNEL]=$VERSION
+  VERSIONS[$CHANNEL]=$(verhist -platform win64 -channel "$CHANNEL" -latest)
 done
 
 # order channels low -> high
@@ -113,7 +64,8 @@ CHANNELS_ORDER=$(
   done | sort -V | awk -F::: '{print $2}'
 )
 
-echo -n "BUILD ORDER:"
+# display channel builds
+echo -n "BUILDING:"
 i=0
 for CHANNEL in $CHANNELS_ORDER; do
   if [ "$i" != "0" ]; then
@@ -124,31 +76,34 @@ for CHANNEL in $CHANNELS_ORDER; do
 done
 echo
 
-for CHANNEL in $CHANNELS_ORDER; do
-  echo "CHANNEL: $CHANNEL (${VERSIONS[$CHANNEL]})"
-done
+#if [ "$CLEANUP" = "1" ]; then
+#  echo "CLEANUP ($(date))"
+#  $SRC/cleanup.sh -o "$OUT" -c "${CHANNELS[@]}" -v "${VERSIONS[@]}"
+#  echo "ENDED CLEANUP ($(date))"
+#fi
 
-if [ "$CLEANUP" = "1" ]; then
-  echo "CLEANUP ($(date))"
-  ./cleanup.sh -c "${CHANNELS[@]}" -v "${VERSIONS[@]}"
-  echo "ENDED CLEANUP ($(date))"
-fi
-
-# attempt to build the channels
+# build
 for CHANNEL in $CHANNELS_ORDER; do
   VERSION=${VERSIONS[$CHANNEL]}
-  ARCHIVE=$SRC/out/headless-shell-$VERSION.tar.bz2
-  if [ -f $ARCHIVE ]; then
+
+  # skip build if archive already exists
+  if [[ -f $OUT/headless-shell-$VERSION-amd64.tar.bz2 && -f $OUT/headless-shell-$VERSION-arm64.tar.bz2 ]]; then
     echo "SKIPPING BUILD FOR CHANNEL $CHANNEL $VERSION"
-    continue;
+    continue
   fi
+
+  # build
   echo "STARTING BUILD FOR CHANNEL $CHANNEL $VERSION ($(date))"
   RET=1
   ./build-headless-shell.sh \
+    -o $OUT \
+    -s $SRCDIR \
     -a $ATTEMPTS \
-    -b $BASE \
     -j $JOBS \
-    -u \
+    -k $JOBFAIL \
+    $DRYRUN \
+    $UPDATE \
+    -t "$TARGETS" \
     -v $VERSION \
   && RET=$?
   if [ $RET -ne 0 ]; then
@@ -159,82 +114,94 @@ for CHANNEL in $CHANNELS_ORDER; do
 done
 
 # publish binary (stable only)
-ARCHIVE=$SRC/out/headless-shell-${VERSIONS[stable]}.tar.bz2
-if [ ! -f $ARCHIVE ]; then
-  echo "MISSING ARCHIVE FOR CHANNEL stable, SKIPPING PUBLISH"
-else
-  if [ -f $ARCHIVE.publish_done ]; then
-    echo "SKIPPING PUBLISH $ARCHIVE"
-  else
-    echo "STARTING PUBLISH ($(date))"
-    ID=$(mmfile "$ARCHIVE"|jq -r '.file_infos[0].id')
-    mmpost 'Built headless-shell `stable` (`'${VERSIONS[stable]}'`)' "$ID"
-    touch $ARCHIVE.publish_done
-    echo -e "\nENDED PUBLISH ($(date))"
-  fi
+if [[ "$CHANNELS" =~ stable ]]; then
+  for TARGET in $TARGETS; do
+    ARCHIVE=$OUT/headless-shell-${VERSIONS[stable]}-$TARGET.tar.bz2
+    if [ ! -f $ARCHIVE ]; then
+      echo "MISSING $ARCHIVE, SKIPPING PUBLISH"
+    else
+      if [ -f $ARCHIVE.published ]; then
+        echo "SKIPPING PUBLISH $ARCHIVE"
+      else
+        echo "STARTING PUBLISH FOR $ARCHIVE ($(date))"
+        #ID=$(mmfile "$ARCHIVE"|jq -r '.file_infos[0].id')
+        #mmpost 'Built headless-shell `stable` (`'${VERSIONS[stable]}'`)' "$ID"
+        touch $ARCHIVE.published
+        echo -e "\nENDED PUBLISH ($(date))"
+      fi
+    fi
+  done
 fi
 
-# build docker images
+# update base image
 BASEIMAGE=$(grep 'FROM' Dockerfile|awk '{print $2}')
-(set -x;
-  docker pull $BASEIMAGE
-)
-for CHANNEL in $CHANNELS_ORDER; do
-  VERSION=${VERSIONS[$CHANNEL]}
-  ARCHIVE=$SRC/out/headless-shell-$VERSION.tar.bz2
-  if [ ! -f $ARCHIVE ]; then
-    echo "MISSING ARCHIVE FOR CHANNEL $CHANNEL $VERSION, SKIPPING DOCKER BUILD"
-    continue
-  fi
-  if [ -f $ARCHIVE.docker_build_done ]; then
-    echo "SKIPPING DOCKER BUILD FOR CHANNEL $CHANNEL $VERSION"
-    continue
-  fi
-  PARAMS=(-t $CHANNEL)
-  if [ "$CHANNEL" = "stable" ]; then
-    PARAMS+=(-t latest)
-  fi
-  ./build-docker.sh \
-    -v $VERSION \
-    ${PARAMS[@]}
-  touch $ARCHIVE.docker_build_done
-  echo "ENDED DOCKER BUILD FOR CHANNEL $CHANNEL $VERSION ($(date))"
+echo -e "\n\nPULLING $BASEIMAGE [$TARGETS] ($(date))"
+for TARGET in $TARGETS; do
+  (set -x;
+    podman pull \
+      --arch $TARGET \
+      $BASEIMAGE
+  )
 done
 
-# push docker images
+# build images
 for CHANNEL in $CHANNELS_ORDER; do
   VERSION=${VERSIONS[$CHANNEL]}
-  ARCHIVE=$SRC/out/headless-shell-$VERSION.tar.bz2
+  ARCHIVE=$OUT/headless-shell-$VERSION.tar.bz2
+  if [ ! -f $ARCHIVE ]; then
+    echo "MISSING ARCHIVE FOR CHANNEL $CHANNEL $VERSION, SKIPPING BUILD"
+    continue
+  fi
+  if [ -f $ARCHIVE.image_built ]; then
+    echo "SKIPPING BUILD FOR CHANNEL $CHANNEL $VERSION"
+    continue
+  fi
+  TAGS=($CHANNEL)
+  if [ "$CHANNEL" = "stable" ]; then
+    TAGS+=(latest)
+  fi
+  ./build-image.sh \
+    -g "${TAGS[@]}" \
+    -v $VERSION
+
+  touch $ARCHIVE.image_built
+  echo "ENDED BUILD FOR CHANNEL $CHANNEL $VERSION ($(date))"
+done
+
+# push images
+for CHANNEL in $CHANNELS_ORDER; do
+  VERSION=${VERSIONS[$CHANNEL]}
+  ARCHIVE=$OUT/headless-shell-$VERSION.tar.bz2
   TAGS=($VERSION $CHANNEL)
   if [ "$CHANNEL" = "stable" ]; then
     TAGS+=(latest)
   fi
   if [ ! -f $ARCHIVE ]; then
-    echo "MISSING ARCHIVE FOR CHANNEL $CHANNEL $VERSION, SKIPPING DOCKER PUSH"
+    echo "MISSING ARCHIVE FOR CHANNEL $CHANNEL $VERSION, SKIPPING PUSH"
     continue
   fi
-  if [ -f $ARCHIVE.docker_push_done ]; then
-    echo "SKIPPING DOCKER PUSH FOR CHANNEL $CHANNEL $VERSION"
+  if [ -f $ARCHIVE.pushed ]; then
+    echo "SKIPPING PUSH FOR CHANNEL $CHANNEL $VERSION"
     continue
   fi
-  echo "STARTING DOCKER PUSH FOR CHANNEL $CHANNEL $VERSION ($(date))"
+  echo "STARTING PUSH FOR CHANNEL $CHANNEL $VERSION ($(date))"
   for TAG in ${TAGS[@]}; do
     (set -x;
-      docker push chromedp/headless-shell:$TAG
+      podman push $IMAGE:$TAG
     )
   done
-  touch $ARCHIVE.docker_push_done
+  touch $ARCHIVE.pushed
 
   # notify
-  HASH=$(docker inspect --format='{{index .RepoDigests 0}}' chromedp/headless-shell:$VERSION|awk -F: '{print $2}')
-  LINK=$(printf 'https://hub.docker.com/layers/chromedp/headless-shell/%s/images/sha256-%s?context=explore' $VERSION $HASH)
+  HASH=$(podman inspect --format='{{index .RepoDigests 0}}' $IMAGE:$VERSION|awk -F: '{print $2}')
+  LINK=$(printf "$URL" "$VERSION" "$HASH")
   TAGTEXT=""
   for TAG in ${TAGS[@]}; do
     TAGTEXT+='`'$TAG'`, '
   done
-  mmpost "Pushed chromedp/headless-shell ($(sed -e 's/, $//' <<< "$TAGTEXT")) to Docker hub: [chromedp/headless-shell:$VERSION]($LINK)"
+  #mmpost "Pushed $IMAGE ($(sed -e 's/, $//' <<< "$TAGTEXT")) to: [$IMAGE:$VERSION]($LINK)"
 
-  echo -e "\nENDED DOCKER PUSH FOR CHANNEL $CHANNEL $VERSION ($(date))"
+  echo -e "\nENDED PUSH FOR CHANNEL $CHANNEL $VERSION ($(date))"
 done
 
 echo "DONE ($(date))"
