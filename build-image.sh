@@ -21,6 +21,8 @@ case "$opt" in
 esac
 done
 
+set -e
+
 # check out dir
 if [ ! -d $OUT ]; then
   echo "$OUT does not exist!"
@@ -36,8 +38,6 @@ fi
 if [ ${#TARGETS[@]} -eq 0 ]; then
   TARGETS=($(ls $OUT/*-${VERSION}-*.bz2|sed -e 's/.*headless-shell-[0-9\.]\+-\([a-z0-9]\+\).*/\1/'|xargs))
 fi
-
-set -e
 
 TAGS=($VERSION ${TAGS[@]})
 

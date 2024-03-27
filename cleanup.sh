@@ -19,6 +19,8 @@ case "$opt" in
 esac
 done
 
+set -e
+
 if [ ${#CHANNELS[@]} -eq 0 ]; then
   CHANNELS=(stable)
 fi
@@ -28,8 +30,6 @@ if [ ${#VERSIONS[@]} -eq 0 ]; then
     VERSIONS+=($(verhist -platform win64 -channel "$CHANNEL" -latest))
   done
 fi
-
-set -e
 
 # join_by ',' ${A[@]} ${B[@]}
 join_by() {

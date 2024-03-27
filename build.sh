@@ -47,6 +47,8 @@ if [ -z "$SRCDIR" ]; then
   fi
 fi
 
+set -e
+
 # determine channels
 if [ ${#CHANNELS[@]} -eq 0 ]; then
   CHANNELS=(stable beta dev)
@@ -56,8 +58,6 @@ fi
 if [ ${#TARGETS[@]} -eq 0 ]; then
   TARGETS=(amd64 arm64)
 fi
-
-set -e
 
 echo "------------------------------------------------------------"
 echo "STARTING ($(date))"
