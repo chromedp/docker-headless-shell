@@ -152,5 +152,3 @@ for CHANNEL in $CHANNELS_ORDER; do
 done
 
 echo "DONE ($(date))"
-
-popd &> /dev/null
