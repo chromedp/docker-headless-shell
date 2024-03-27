@@ -6,7 +6,7 @@ OUT=$SRC/out
 IMAGE=docker.io/chromedp/headless-shell
 CHANNELS=()
 VERSIONS=()
-MTIME=30
+MTIME=90
 
 OPTIND=1
 while getopts "o:i:c:v:m:" opt; do
