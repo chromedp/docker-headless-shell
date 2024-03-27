@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # sudo loginctl enable-linger $USER
-# systemctl enable --user headless-shell.timer
+# systemctl enable --now --user headless-shell.timer
 
 SRC=$(realpath $(cd -P "$(dirname "${BASH_SOURCE[0]}")" && pwd))
 
