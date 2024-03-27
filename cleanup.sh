@@ -81,9 +81,9 @@ fi
 # remove images
 IMAGES=$(
   podman images \
+    --noheading \
     --filter=reference=$IMAGE \
     --filter=reference=localhost/$(basename $IMAGE) \
-    |sed 1d \
     |grep -Ev "($(join_by '|' latest ${CHANNELS[@]} ${VERSIONS[@]}))" \
     |awk '{print $3}'
 )

@@ -39,14 +39,27 @@ if [ ${#TARGETS[@]} -eq 0 ]; then
   TARGETS=($(ls $OUT/*-${VERSION}-*.bz2|sed -e 's/.*headless-shell-[0-9\.]\+-\([a-z0-9]\+\).*/\1/'|xargs))
 fi
 
-TAGS=($VERSION ${TAGS[@]})
+# join_by ',' ${A[@]} ${B[@]}
+join_by() {
+  local d=${1-} f=${2-}
+  if shift 2; then
+    printf %s "$f" "${@/#/$d}"
+  fi
+}
 
 echo "VERSION:  $VERSION [${TARGETS[@]}]"
-echo "IMAGE:    $IMAGE [${TAGS[@]}]"
+echo "IMAGE:    $IMAGE [tags: $(join_by ' ' $VERSION ${TAGS[@]})]"
 
 IMAGES=()
 for TARGET in ${TARGETS[@]}; do
   NAME=localhost/$(basename $IMAGE):$VERSION-$TARGET
+  IMAGES+=($NAME)
+
+  if [ ! -z "$(buildah images --noheading --filter=reference=$NAME)" ]; then
+    echo -e "\n\nSKIPPING BUILD FOR $NAME ($(date))"
+    continue
+  fi
+
   echo -e "\n\nBUILDING $NAME ($(date))"
   ARCHIVE=$OUT/headless-shell-$VERSION-$TARGET.tar.bz2
   if [ ! -f $ARCHIVE ]; then
@@ -64,20 +77,35 @@ for TARGET in ${TARGETS[@]}; do
       --tag $NAME \
       $SRC
   )
-  IMAGES+=($NAME)
 done
 
-for TAG in ${TAGS[@]}; do
+REPO=$(sed -e 's%^docker\.io/%%' <<< "$IMAGE")
+for TAG in $VERSION ${TAGS[@]}; do
   NAME=localhost/$(basename $IMAGE):$TAG
-  echo -e "\n\nCREATING MANIFEST $NAME ($(date))"
-  (set -x;
-    buildah manifest exists $NAME \
-      && buildah manifest rm $NAME
-    buildah manifest create $NAME \
-      ${IMAGES[@]}
-  )
+
+  # create manifest
+  echo -e "\n\nCONFIGURING MANIFEST $NAME ($(date))"
+  if `buildah manifest exists $NAME`; then
+    for HASH in $(buildah manifest inspect $NAME|jq -r '.manifests[]|.digest'); do
+      (set -x;
+        buildah manifest remove $NAME $HASH
+      )
+    done
+  else
+    (set -x;
+      buildah manifest create $NAME
+    )
+  fi
+
+  # add images
+  for IMG in ${IMAGES[@]}; do
+    (set -x;
+      buildah manifest add $NAME $IMG
+    )
+  done
+
   if [ $PUSH -eq 1 ]; then
-    REPO=$(sed -e 's%^docker\.io/%%' <<< "$IMAGE")
+    echo -e "\n\nPUSHING MANIFEST $NAME ($(date))"
     (set -x;
       buildah manifest push \
         --all \
