@@ -115,7 +115,7 @@ for CHANNEL in $CHANNELS_ORDER; do
   # build
   echo -e "\n\nSTARTING BUILD FOR CHANNEL $CHANNEL $VERSION ($(date))"
   RET=1
-  ./build-headless-shell.sh \
+  $SRC/build-headless-shell.sh \
     -o $OUT \
     -s $SRCDIR \
     -c $CHANNEL \
@@ -141,7 +141,7 @@ for CHANNEL in $CHANNELS_ORDER; do
     TAGS+=(latest)
   fi
   echo -e "\n\nSTARTING IMAGE BUILD FOR CHANNEL $CHANNEL $VERSION ($(date))"
-  ./build-image.sh \
+  $SRC/build-image.sh \
     -o $OUT \
     -t $(join_by ' -t ' ${TARGETS[@]}) \
     -g $(join_by ' -g ' ${TAGS[@]}) \
