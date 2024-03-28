@@ -1,5 +1,5 @@
 [Unit]
-Description="headless-shell build daily at 2:05am"
+Description="build headless-shell daily at 2:05am"
 
 [Timer]
 OnCalendar=*-*-* 02:05:00

@@ -1,5 +1,5 @@
 [Unit]
-Description="headless-shell build"
+Description="build headless-shell"
 
 [Service]
 ExecStart=/home/user/src/headless-shell/build.sh -j 14 -p
