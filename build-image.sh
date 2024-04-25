@@ -8,6 +8,8 @@ TAGS=()
 VERSION=
 PUSH=0
 IMAGE=docker.io/chromedp/headless-shell
+DOCKER_USER=kenshaw
+DOCKER_PASSFILE=$HOME/.config/headless-shell/token
 
 OPTIND=1
 while getopts "o:t:g:v:pi:" opt; do
@@ -78,6 +80,12 @@ for TARGET in ${TARGETS[@]}; do
       $SRC
   )
 done
+
+(set -x;
+  buildah login docker.io \
+    --username $DOCKER_USER \
+    --password-stdin < $DOCKER_PASSFILE
+)
 
 REPO=$(sed -e 's%^docker\.io/%%' <<< "$IMAGE")
 for TAG in $VERSION ${TAGS[@]}; do
