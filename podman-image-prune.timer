@@ -1,0 +1,9 @@
+[Unit]
+Description="prune podman images daily at 1:05am"
+
+[Timer]
+OnCalendar=*-*-* 01:05:00
+Unit=podman-image-prune.service
+
+[Install]
+WantedBy=timers.target

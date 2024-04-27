@@ -1,0 +1,5 @@
+[Unit]
+Description="prune podman images"
+
+[Service]
+ExecStart=/usr/bin/podman image prune --force
