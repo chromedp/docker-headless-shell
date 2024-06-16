@@ -1,0 +1,9 @@
+[Unit]
+Description="git gc depot_tools images every friday at 23:05"
+
+[Timer]
+OnCalendar=Fri *-*-* 23:05:00
+Unit=git-gc-depot-tools.service
+
+[Install]
+WantedBy=timers.target

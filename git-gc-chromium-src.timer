@@ -1,0 +1,9 @@
+[Unit]
+Description="git gc chromium src every friday at 23:15"
+
+[Timer]
+OnCalendar=Fri *-*-* 23:15:00
+Unit=git-gc-chromium-src.service
+
+[Install]
+WantedBy=timers.target

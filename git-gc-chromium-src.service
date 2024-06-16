@@ -1,0 +1,5 @@
+[Unit]
+Description="git gc chromium"
+
+[Service]
+ExecStart=/usr/bin/git -C /media/src/chromium/src gc

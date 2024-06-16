@@ -3,6 +3,8 @@
 # sudo loginctl enable-linger $USER
 # systemctl enable --now --user headless-shell.timer
 # systemctl enable --now --user podman-image-prune.timer
+# systemctl enable --now --user git-gc-chromium-src.timer
+# systemctl enable --now --user git-gc-depot-tools.timer
 
 SRC=$(realpath $(cd -P "$(dirname "${BASH_SOURCE[0]}")" && pwd))
 
