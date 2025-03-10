@@ -10,4 +10,4 @@ exec /headless-shell/headless-shell \
   --use-angle=swiftshader \
   --remote-debugging-address=0.0.0.0 \
   --remote-debugging-port=9223 \
-  $@ # Pass remaining arguments sent to the entrypoint
+  $@
