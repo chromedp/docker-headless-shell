@@ -51,7 +51,7 @@ $ podman run -d -p 9222:9222 --rm --name headless-shell --shm-size 2G docker.io/
 
 # run as unprivileged user
 # get seccomp profile from https://raw.githubusercontent.com/jfrazelle/dotfiles/master/etc/docker/seccomp/chrome.json
-$ podman run -d -p 9222:9222 --user nobody --security-opt seccomp=chrome.json --entrypoint '/headless-shell/headless-shell' docker.io/chromedp/headless-shell --remote-debugging-address=0.0.0.0 --remote-debugging-port=9222 --disable-gpu --headless
+$ podman run -d -p 9222:9222 --user nobody --security-opt seccomp=chrome.json --entrypoint '/headless-shell/headless-shell' docker.io/chromedp/headless-shell --remote-debugging-address=0.0.0.0 --remote-debugging-port=9222 --disable-gpu --enable-unsafe-swiftshader --headless
 ```
 
 ## Zombie processes
