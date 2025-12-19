@@ -174,7 +174,7 @@ for TARGET in ${TARGETS[@]}; do
   mkdir -p $PROJECT
 
   # generate build files
-  echo -e "\n\nGENERATING $TARGET $VERSION -> $PROJECT ($(date))"
+  echo -e "\n\nGENERATING $NAME ($VERSION/$TARGET) -> $PROJECT ($(date))"
 
   EXTRA=
   if [ "$TARGET" = "arm64" ]; then
@@ -199,7 +199,7 @@ $EXTRA
   # build
   RET=1
   for i in $(seq 1 $ATTEMPTS); do
-    echo -e "\n\nSTARTING BUILD ATTEMPT $i FOR $TARGET $VERSION ($(date))"
+    echo -e "\n\nSTARTING BUILD ATTEMPT $i FOR $NAME ($VERSION/$TARGET) ($(date))"
 
     RET=1
     $OUT/depot_tools/ninja \
@@ -210,14 +210,14 @@ $EXTRA
       headless_shell && RET=$?
 
     if [ $RET -eq 0 ]; then
-      echo "COMPLETED BUILD ATTEMPT $i FOR $TARGET $VERSION ($(date))"
+      echo "COMPLETED BUILD ATTEMPT $i FOR $NAME ($VERSION/$TARGET) ($(date))"
       break
     fi
-    echo "BUILD ATTEMPT $i FOR $TARGET $VERSION FAILED ($(date))"
+    echo "BUILD ATTEMPT $i FOR $NAME ($VERSION/$TARGET) FAILED ($(date))"
   done
 
   if [ $RET -ne 0 ]; then
-    echo -e "\n\nERROR: COULD NOT COMPLETE BUILD FOR $TARGET $VERSION, BUILD ATTEMPTS HAVE BEEN EXHAUSTED ($(date))"
+    echo -e "\n\nERROR: COULD NOT COMPLETE BUILD FOR $NAME ($VERSION/$TARGET), BUILD ATTEMPTS HAVE BEEN EXHAUSTED ($(date))"
     exit 1
   fi
 
@@ -227,7 +227,8 @@ done
 
 # package
 for TARGET in ${TARGETS[@]}; do
-  PROJECT=$CHROMESRC/out/headless-shell-$CHANNEL-$TARGET
+  NAME=headless-shell-$CHANNEL-$TARGET
+  PROJECT=$CHROMESRC/out/$NAME
   WORKDIR=$TMPDIR/headless-shell
 
   # strip
@@ -238,6 +239,7 @@ for TARGET in ${TARGETS[@]}; do
 
   # copy files
   mkdir -p $WORKDIR
+  echo "STRIPPING $NAME ($VERSION/$TARGET) -> $WORKDIR ($(date))"
   (set -x;
     cp -a $PROJECT/headless_shell $WORKDIR/headless-shell
     cp -a $PROJECT/{.stamp,libEGL.so,libGLESv2.so,libvk_swiftshader.so,libvulkan.so.1,vk_swiftshader_icd.json} $WORKDIR
@@ -248,6 +250,8 @@ for TARGET in ${TARGETS[@]}; do
   )
 
   if [ "$TARGET" = "amd64" ]; then
+    echo "VERIFYING $NAME ($VERSION/$TARGET) ($(date))"
+
     # verify headless-shell runs and reports correct version
     $WORKDIR/headless-shell --remote-debugging-port=5000 &> /dev/null & PID=$!
     sleep 1
@@ -257,15 +261,15 @@ for TARGET in ${TARGETS[@]}; do
     wait $PID 2>/dev/null
     set -e
     if [ "$UA" != "Chrome/$VERSION" ]; then
-      echo -e "\n\nERROR: HEADLESS-SHELL REPORTED VERSION '$UA', NOT 'Chrome/$VERSION'! ($(date))"
+      echo -e "\n\nERROR: $NAME ($VERSION/$TARGET) REPORTED VERSION '$UA', NOT 'Chrome/$VERSION'! ($(date))"
       exit 1
     else
-      echo -e "\n\nHEADLESS SHELL REPORTED VERSION '$UA' ($(date))"
+      echo -e "\n\n$NAME ($VERSION/$TARGET) REPORTED VERSION '$UA' ($(date))"
     fi
   fi
 
   ARCHIVE=$OUT/headless-shell-$VERSION-$TARGET.tar.bz2
-  echo -e "\n\nPACKAGING $ARCHIVE ($(date))"
+  echo -e "\n\nPACKAGING $NAME ($VERSION/$TARGET) -> $ARCHIVE ($(date))"
   (set -x;
     rm -f $ARCHIVE
     tar -C $TMPDIR -cjf $ARCHIVE headless-shell
