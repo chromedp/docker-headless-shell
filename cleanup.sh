@@ -27,7 +27,7 @@ fi
 
 if [ ${#VERSIONS[@]} -eq 0 ]; then
   for CHANNEL in ${CHANNELS[@]}; do
-    VERSIONS+=($(verhist -platform win64 -channel "$CHANNEL" -latest))
+    VERSIONS+=($(verhist -platform linux -channel "$CHANNEL" -latest))
   done
 fi
 

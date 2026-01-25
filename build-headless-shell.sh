@@ -40,7 +40,7 @@ fi
 
 # determine version
 if [ -z "$VERSION" ]; then
-  VERSION=$(verhist -platform win64 -channel $CHANNEL -latest)
+  VERSION=$(verhist -platform linux -channel $CHANNEL -latest)
 fi
 
 # determine out dir

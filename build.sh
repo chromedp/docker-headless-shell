@@ -60,7 +60,7 @@ echo "STARTING ($(date))"
 # determine versions
 declare -A VERSIONS
 for CHANNEL in ${CHANNELS[@]}; do
-  VERSIONS[$CHANNEL]=$(verhist -platform win64 -channel "$CHANNEL" -latest)
+  VERSIONS[$CHANNEL]=$(verhist -platform linux -channel "$CHANNEL" -latest)
 done
 
 # order channels low -> high
