@@ -237,12 +237,15 @@ for TARGET in ${TARGETS[@]}; do
     STRIP=aarch64-linux-gnu-strip
   fi
 
-  # copy files
+  # stage files
   mkdir -p $WORKDIR
-  echo "STRIPPING $NAME ($VERSION/$TARGET) -> $WORKDIR ($(date))"
+  echo "STAGING $NAME ($VERSION/$TARGET) -> $WORKDIR ($(date))"
   (set -x;
+    cp -a $PROJECT/.stamp $WORKDIR
+    cp -a $PROJECT/*.json $WORKDIR
+    cp -a $PROJECT/headless*.pak $WORKDIR
     cp -a $PROJECT/headless_shell $WORKDIR/headless-shell
-    cp -a $PROJECT/{.stamp,libEGL.so,libGLESv2.so,libvk_swiftshader.so,libvulkan.so.1,vk_swiftshader_icd.json} $WORKDIR
+    cp -a $PROJECT/*.so{,.1} $WORKDIR
     $STRIP $WORKDIR/headless-shell $WORKDIR/*.so{,.1}
     chmod -x $WORKDIR/*.so{,.1}
     du -s $WORKDIR/*
