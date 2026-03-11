@@ -243,6 +243,10 @@ for TARGET in ${TARGETS[@]}; do
   (set -x;
     cp -a $PROJECT/headless_shell $WORKDIR/headless-shell
     cp -a $PROJECT/{.stamp,libEGL.so,libGLESv2.so,libvk_swiftshader.so,libvulkan.so.1,vk_swiftshader_icd.json} $WORKDIR
+    # Copy .pak resource files (UA stylesheet, etc.) — required since Chromium 146
+    for f in $PROJECT/headless_*.pak; do
+      [ -f "$f" ] && cp -a "$f" $WORKDIR
+    done
     $STRIP $WORKDIR/headless-shell $WORKDIR/*.so{,.1}
     chmod -x $WORKDIR/*.so{,.1}
     du -s $WORKDIR/*

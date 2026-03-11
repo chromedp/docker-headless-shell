@@ -12,6 +12,7 @@ COPY \
     out/$VERSION/headless-shell/libvk_swiftshader.so \
     out/$VERSION/headless-shell/libvulkan.so.1 \
     out/$VERSION/headless-shell/vk_swiftshader_icd.json \
+    out/$VERSION/headless-shell/headless_*.pak \
     /headless-shell/
 COPY run.sh /headless-shell/
 EXPOSE 9222
