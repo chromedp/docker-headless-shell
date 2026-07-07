@@ -187,6 +187,7 @@ symbol_level = 0
 blink_symbol_level = 0
 headless_use_prefs = true
 chrome_pgo_phase = 0
+use_dbus = true
 $EXTRA
 " > $PROJECT/args.gn
 
