@@ -187,7 +187,8 @@ symbol_level = 0
 blink_symbol_level = 0
 headless_use_prefs = true
 chrome_pgo_phase = 0
-use_dbus = true
+use_dbus = false
+enable_bluetooth = false
 $EXTRA
 " > $PROJECT/args.gn
 
