@@ -92,29 +92,32 @@ Install the following with `yay -S`:
 
 ```sh
 $ yay -S --needed \
-    aarch64-linux-gnu-binutils \
-    autoconf automake binutils bison fakeroot flex gawk gcc gettext gperf \
-    libtool m4 make patch pkgconf texinfo \
-    buildah podman qemu-user-static qemu-user-static-binfmt \
-    curl git git-lfs go jq perl python
+    git git-lfs python perl curl jq go bzip2 file \
+    binutils aarch64-linux-gnu-binutils \
+    bison flex gperf \
+    buildah podman qemu-user-static qemu-user-static-binfmt
 ```
 
-- `autoconf` through `texinfo` (the second group) are the usual build tools,
-  and are what `base-devel` provides, plus `gperf`
-- `git-lfs` is required: Chromium's `third_party/litert` contains Git LFS
-  files, and `gclient sync` fails without it
-- `aarch64-linux-gnu-binutils` provides the `aarch64-linux-gnu-strip` used for
-  the arm64 build. Chromium's own toolchain and sysroots are downloaded by
-  `gclient`
+- `git`, `git-lfs`, `python` and `perl` are used by the scripts, `gclient` and
+  the Chromium build. `git-lfs` is required: Chromium's `third_party/litert`
+  contains Git LFS files, and `gclient sync` fails without it
+- `curl`, `jq`, `bzip2` and `file` are used by the scripts to verify and package
+  the build
+- `binutils` and `aarch64-linux-gnu-binutils` provide `strip` and
+  `aarch64-linux-gnu-strip`, which are used on the amd64 and arm64 binaries
+- `bison`, `flex` and `gperf` are the build tools named in Chromium's
+  `build/install-build-deps.py`. The remaining packages there are for
+  packaging, tests and distro libraries, and are not needed, as Chromium's
+  toolchain and sysroots are downloaded by `gclient`
 - `buildah`, `podman`, `qemu-user-static` and `qemu-user-static-binfmt` are
   used to build and push the multi-arch container images
-- `verhist` is not packaged, and is installed with Go:
+- `go` is needed to install `verhist`, which is not packaged:
 
   ```sh
   $ go install github.com/chromedp/verhist/cmd/verhist@latest
   ```
 
-  and must be on the `PATH` of the user running the build
+  and it must be on the `PATH` of the user running the build
 
 ### Running the build
 
