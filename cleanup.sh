@@ -1,51 +1,42 @@
 #!/bin/bash
 
-SRC=$(realpath $(cd -P "$(dirname "${BASH_SOURCE[0]}")" && pwd))
+SRC=$(realpath "$(cd -P "$(dirname "${BASH_SOURCE[0]}")" && pwd)")
+. "$SRC/lib.sh"
 
 OUT=$SRC/out
 IMAGE=docker.io/chromedp/headless-shell
 CHANNELS=()
 VERSIONS=()
-MTIME=90
+DAYS=90
 
-OPTIND=1
-while getopts "o:i:c:v:m:" opt; do
-case "$opt" in
-  o) OUT=$OPTARG ;;
-  i) IMAGE=$OPTARG ;;
-  c) CHANNELS+=($OPTARG) ;;
-  v) VERSIONS+=($OPTARG) ;;
-  m) MTIME=$OPTARG ;;
-esac
-done
+DESC='Remove old archives and extracted directories from the output directory, and
+remove stale containers and images. The given versions and channels are kept.'
+OPTS=(
+  'out|OUT|val|dir|output directory'
+  'image|IMAGE|val|name|image name'
+  'channel|CHANNELS|list|name|channel to keep (repeatable; default: stable)'
+  'version|VERSIONS|list|version|version to keep (repeatable; default: latest of each channel)'
+  'days|DAYS|val|n|remove files and directories older than n days'
+)
+parse_opts "$@"
 
 set -e
 
-if [ ${#CHANNELS[@]} -eq 0 ]; then
-  CHANNELS=(stable)
-fi
+[ ${#CHANNELS[@]} -gt 0 ] || CHANNELS=(stable)
 
 if [ ${#VERSIONS[@]} -eq 0 ]; then
-  for CHANNEL in ${CHANNELS[@]}; do
-    VERSIONS+=($(verhist -platform win64 -channel "$CHANNEL" -latest))
+  for CHANNEL in "${CHANNELS[@]}"; do
+    VERSIONS+=("$(latest_version "$CHANNEL")")
   done
 fi
 
-# join_by ',' ${A[@]} ${B[@]}
-join_by() {
-  local d=${1-} f=${2-}
-  if shift 2; then
-    printf %s "$f" "${@/#/$d}"
-  fi
-}
-
-echo -e "KEEP: $(join_by ', ' latest ${CHANNELS[@]} ${VERSIONS[@]})"
+echo -e "KEEP: $(join_by ', ' latest "${CHANNELS[@]}" "${VERSIONS[@]}")"
 
 # cleanup old directories and files
-if [ -d $OUT ]; then
-  REGEX=".*($(join_by '|' ${VERSIONS[@]})).*"
+if [ -d "$OUT" ]; then
+  REGEX=".*($(join_by '|' "${VERSIONS[@]}")).*"
   (set -x;
-    find $OUT \
+    find "$OUT" \
       -mindepth 1 \
       -maxdepth 1 \
       -regextype posix-extended \
@@ -56,7 +47,7 @@ if [ -d $OUT ]; then
         -type f \
         -regex '.*/headless-shell-[0-9]+(\.[0-9]+){3}-(amd64|arm64)\.tar\.bz2$' \
       \) \
-      -mtime $MTIME \
+      -mtime "+$DAYS" \
       -not \
       -regex "$REGEX" \
       -exec echo REMOVING {} \; \
@@ -67,12 +58,12 @@ fi
 # remove containers
 CONTAINERS=$(
   podman container ls \
-    --filter=ancestor=$IMAGE \
+    --filter=ancestor="$IMAGE" \
     --filter=status=exited \
     --filter=status=created \
-  --quiet
+    --quiet
 )
-if [ ! -z "$CONTAINERS" ]; then
+if [ -n "$CONTAINERS" ]; then
   (set -x;
     podman container rm --force $CONTAINERS
   )
@@ -82,12 +73,13 @@ fi
 IMAGES=$(
   podman images \
     --noheading \
-    --filter=reference=$IMAGE \
-    --filter=reference=localhost/$(basename $IMAGE) \
-    |grep -Ev "($(join_by '|' latest ${CHANNELS[@]} ${VERSIONS[@]}))" \
-    |awk '{print $3}'
+    --filter=reference="$IMAGE" \
+    --filter=reference="localhost/$(basename "$IMAGE")" \
+    |grep -Ev "($(join_by '|' latest "${CHANNELS[@]}" "${VERSIONS[@]}"))" \
+    |awk '{print $3}' \
+    || true
 )
-if [ ! -z "$IMAGES" ]; then
+if [ -n "$IMAGES" ]; then
   (set -x;
     podman rmi --force $IMAGES
   )

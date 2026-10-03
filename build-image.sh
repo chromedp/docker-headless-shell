@@ -1,6 +1,7 @@
 #!/bin/bash
 
-SRC=$(realpath $(cd -P "$(dirname "${BASH_SOURCE[0]}")" && pwd))
+SRC=$(realpath "$(cd -P "$(dirname "${BASH_SOURCE[0]}")" && pwd)")
+. "$SRC/lib.sh"
 
 OUT=$SRC/out
 TARGETS=()
@@ -11,114 +12,103 @@ IMAGE=docker.io/chromedp/headless-shell
 DOCKER_USER=kenshaw
 DOCKER_PASSFILE=$HOME/.config/headless-shell/token
 
-OPTIND=1
-while getopts "o:t:g:v:pi:" opt; do
-case "$opt" in
-  o) OUT=$OPTARG ;;
-  t) TARGETS+=($OPTARG) ;;
-  g) TAGS+=($OPTARG) ;;
-  v) VERSION=$OPTARG ;;
-  p) PUSH=1 ;;
-  i) IMAGE=$OPTARG ;;
-esac
-done
+DESC='Build per-arch container images from the packaged archives, and assemble
+(and optionally push) a multi-arch manifest for each tag.'
+OPTS=(
+  'out|OUT|val|dir|output directory'
+  'target|TARGETS|list|arch|target arch (repeatable; default: every arch with an archive for the version)'
+  'tag|TAGS|list|tag|extra tag for the manifest (repeatable; the version is always tagged)'
+  'version|VERSION|val|version|version to build (default: newest archive in the output directory)'
+  'push|PUSH|flag|1|push manifests to the registry'
+  'image|IMAGE|val|name|image name'
+  'docker-user|DOCKER_USER|val|user|registry user'
+  'docker-passfile|DOCKER_PASSFILE|val|file|file containing the registry password or token'
+)
+parse_opts "$@"
 
 set -e
 
 # check out dir
-if [ ! -d $OUT ]; then
-  echo "$OUT does not exist!"
-  exit 1
-fi
+[ -d "$OUT" ] || die "$OUT does not exist!"
 
 # determine version
-if [ -z "$VERSION" ]; then
-  VERSION=$(ls $OUT/*.bz2|sort -r -V|head -1|sed -e 's/.*headless-shell-\([0-9\.]\+\).*/\1/')
-fi
+[ -n "$VERSION" ] || VERSION=$(latest_archive_version "$OUT")
 
 # determine targets
 if [ ${#TARGETS[@]} -eq 0 ]; then
-  TARGETS=($(ls $OUT/*-${VERSION}-*.bz2|sed -e 's/.*headless-shell-[0-9\.]\+-\([a-z0-9]\+\).*/\1/'|xargs))
+  TARGETS=($(ls "$OUT"/*-"${VERSION}"-*.bz2|sed -e 's/.*headless-shell-[0-9.]\+-\([a-z0-9]\+\)\.tar\.bz2$/\1/'|xargs))
 fi
 
-# join_by ',' ${A[@]} ${B[@]}
-join_by() {
-  local d=${1-} f=${2-}
-  if shift 2; then
-    printf %s "$f" "${@/#/$d}"
-  fi
-}
-
-echo "VERSION:  $VERSION [${TARGETS[@]}]"
-echo "IMAGE:    $IMAGE [tags: $(join_by ' ' $VERSION ${TAGS[@]})]"
+echo "VERSION:  $VERSION [${TARGETS[*]}]"
+echo "IMAGE:    $IMAGE [tags: $(join_by ' ' "$VERSION" "${TAGS[@]}")]"
 
 IMAGES=()
-for TARGET in ${TARGETS[@]}; do
-  NAME=localhost/$(basename $IMAGE):$VERSION-$TARGET
-  IMAGES+=($NAME)
+for TARGET in "${TARGETS[@]}"; do
+  NAME=localhost/$(basename "$IMAGE"):$VERSION-$TARGET
+  IMAGES+=("$NAME")
 
-  if [ ! -z "$(buildah images --noheading --filter=reference=$NAME)" ]; then
+  if [ -n "$(buildah images --noheading --filter=reference="$NAME")" ]; then
     echo -e "\n\nSKIPPING BUILD FOR $NAME ($(date))"
     continue
   fi
 
   echo -e "\n\nBUILDING $NAME ($(date))"
   ARCHIVE=$OUT/headless-shell-$VERSION-$TARGET.tar.bz2
-  if [ ! -f $ARCHIVE ]; then
-    echo "ERROR: $ARCHIVE is missing!"
-    exit 1
-  fi
+  [ -f "$ARCHIVE" ] || die "$ARCHIVE is missing!"
   (set -x;
-    rm -rf $OUT/$VERSION-$TARGET
-    mkdir -p $OUT/$VERSION-$TARGET
-    tar -C $OUT/$VERSION-$TARGET -jxf $ARCHIVE
+    rm -rf "$OUT/$VERSION-$TARGET"
+    mkdir -p "$OUT/$VERSION-$TARGET"
+    tar -C "$OUT/$VERSION-$TARGET" -jxf "$ARCHIVE"
 
     buildah build \
-      --platform linux/$TARGET \
+      --platform "linux/$TARGET" \
       --build-arg VERSION="$VERSION-$TARGET" \
-      --tag $NAME \
-      $SRC
+      --tag "$NAME" \
+      "$SRC"
   )
 done
 
-(set -x;
-  buildah login docker.io \
-    --username $DOCKER_USER \
-    --password-stdin < $DOCKER_PASSFILE
-)
+if [ "$PUSH" -eq 1 ]; then
+  [ -r "$DOCKER_PASSFILE" ] || die "$DOCKER_PASSFILE is not readable"
+  (set -x;
+    buildah login docker.io \
+      --username "$DOCKER_USER" \
+      --password-stdin < "$DOCKER_PASSFILE"
+  )
+fi
 
 REPO=$(sed -e 's%^docker\.io/%%' <<< "$IMAGE")
-for TAG in $VERSION ${TAGS[@]}; do
-  NAME=localhost/$(basename $IMAGE):$TAG
+for TAG in "$VERSION" "${TAGS[@]}"; do
+  NAME=localhost/$(basename "$IMAGE"):$TAG
 
   # create manifest
   echo -e "\n\nCONFIGURING MANIFEST $NAME ($(date))"
-  if `buildah manifest exists $NAME`; then
-    for HASH in $(buildah manifest inspect $NAME|jq -r '.manifests[]|.digest'); do
+  if buildah manifest exists "$NAME"; then
+    for HASH in $(buildah manifest inspect "$NAME"|jq -r '.manifests[]|.digest'); do
       (set -x;
-        buildah manifest remove $NAME $HASH
+        buildah manifest remove "$NAME" "$HASH"
       )
     done
   else
     (set -x;
-      buildah manifest create $NAME
+      buildah manifest create "$NAME"
     )
   fi
 
   # add images
-  for IMG in ${IMAGES[@]}; do
+  for IMG in "${IMAGES[@]}"; do
     (set -x;
-      buildah manifest add $NAME $IMG
+      buildah manifest add "$NAME" "$IMG"
     )
   done
 
-  if [ $PUSH -eq 1 ]; then
+  if [ "$PUSH" -eq 1 ]; then
     echo -e "\n\nPUSHING MANIFEST $NAME ($(date))"
     (set -x;
       buildah manifest push \
         --all \
-        $NAME \
-        docker://$REPO:$TAG
+        "$NAME" \
+        "docker://$REPO:$TAG"
     )
   fi
 done
