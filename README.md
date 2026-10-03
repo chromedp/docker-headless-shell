@@ -92,20 +92,22 @@ Install the following with `yay -S`:
 
 ```sh
 $ yay -S --needed \
-    git git-lfs python perl curl jq go bzip2 file \
-    binutils aarch64-linux-gnu-binutils \
-    bison flex gperf \
+    base-devel git git-lfs python perl curl jq go bzip2 \
+    aarch64-linux-gnu-binutils gperf \
     buildah podman qemu-user-static qemu-user-static-binfmt
 ```
 
 - `git`, `git-lfs`, `python` and `perl` are used by the scripts, `gclient` and
   the Chromium build. `git-lfs` is required: Chromium's `third_party/litert`
   contains Git LFS files, and `gclient sync` fails without it
-- `curl`, `jq`, `bzip2` and `file` are used by the scripts to verify and package
-  the build
-- `binutils` and `aarch64-linux-gnu-binutils` provide `strip` and
-  `aarch64-linux-gnu-strip`, which are used on the amd64 and arm64 binaries
-- `bison`, `flex` and `gperf` are the build tools named in Chromium's
+- `base-devel` provides the build tools used by the scripts and Chromium's
+  build (`binutils`, `bison`, `flex`, `patch`, `file`, and so on). `strip` from
+  `binutils` is used on the amd64 binary
+- `curl`, `jq` and `bzip2` are used by the scripts to verify and package the
+  build
+- `aarch64-linux-gnu-binutils` provides `aarch64-linux-gnu-strip`, used on the
+  arm64 binary
+- `gperf`, along with `bison` and `flex`, is a build tool named in Chromium's
   `build/install-build-deps.py`. The remaining packages there are for
   packaging, tests and distro libraries, and are not needed, as Chromium's
   toolchain and sysroots are downloaded by `gclient`
