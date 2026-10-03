@@ -139,11 +139,27 @@ $ journalctl --user -fu headless-shell.service
 
 Pushing requires a registry token in `~/.config/headless-shell/token`.
 
+### Failure notifications
+
+If a build fails, `headless-shell.service` starts `headless-shell-failure.service`
+(via `OnFailure=`), which runs `notify.sh` to post a message, with the tail of the
+build log, to a Discord channel. Create a [webhook][discord-webhooks] for the
+channel and store its URL in `~/.config/headless-shell/discord-webhook`:
+
+```sh
+$ install -m 600 /dev/null ~/.config/headless-shell/discord-webhook
+$ $EDITOR ~/.config/headless-shell/discord-webhook
+
+# test the notification
+$ ./notify.sh --unit headless-shell.service
+```
+
 [headless-shell]: https://github.com/chromedp/docker-headless-shell
 [docker-headless-shell]: https://hub.docker.com/r/chromedp/headless-shell/tags
 [devtools-protocol]: https://chromedevtools.github.io/devtools-protocol/
 [chromedp]: https://github.com/chromedp/chromedp
 [building-linux]: https://chromium.googlesource.com/chromium/src/+/main/docs/linux/build_instructions.md
 [building-headless]: https://chromium.googlesource.com/chromium/src/+/main/headless/README.md
+[discord-webhooks]: https://support.discord.com/hc/en-us/articles/228383668-Intro-to-Webhooks
 [dumb-init]: https://github.com/Yelp/dumb-init
 [tini]: https://github.com/krallin/tini

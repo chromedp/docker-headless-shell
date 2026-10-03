@@ -1,0 +1,6 @@
+[Unit]
+Description="notify that the headless-shell build failed"
+
+[Service]
+Type=oneshot
+ExecStart=%h/src/headless-shell/notify.sh --unit headless-shell.service

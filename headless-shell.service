@@ -1,5 +1,6 @@
 [Unit]
 Description="build headless-shell"
+OnFailure=headless-shell-failure.service
 
 [Service]
 Type=oneshot
