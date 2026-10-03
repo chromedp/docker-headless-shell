@@ -79,6 +79,61 @@ ENTRYPOINT ["dumb-init", "--"]
 CMD ["/path/to/your/program"]
 ```
 
+## Building
+
+`headless-shell` is built nightly on an Arch Linux host by the scripts in this
+repository (see [Chromium's Linux build instructions][building-linux] and the
+[headless README][building-headless]). The build runs directly on the host, and
+only the resulting binaries are packaged into the container image.
+
+### Host packages
+
+Install the following with `yay -S`:
+
+```sh
+$ yay -S --needed \
+    aarch64-linux-gnu-binutils \
+    autoconf automake binutils bison fakeroot flex gawk gcc gettext gperf \
+    libtool m4 make patch pkgconf texinfo \
+    buildah podman qemu-user-static qemu-user-static-binfmt \
+    curl git git-lfs go jq perl python
+```
+
+- `autoconf` through `texinfo` (the second group) are the usual build tools,
+  and are what `base-devel` provides, plus `gperf`
+- `git-lfs` is required: Chromium's `third_party/litert` contains Git LFS
+  files, and `gclient sync` fails without it
+- `aarch64-linux-gnu-binutils` provides the `aarch64-linux-gnu-strip` used for
+  the arm64 build. Chromium's own toolchain and sysroots are downloaded by
+  `gclient`
+- `buildah`, `podman`, `qemu-user-static` and `qemu-user-static-binfmt` are
+  used to build and push the multi-arch container images
+- `verhist` is not packaged, and is installed with Go:
+
+  ```sh
+  $ go install github.com/chromedp/verhist/cmd/verhist@latest
+  ```
+
+  and must be on the `PATH` of the user running the build
+
+### Running the build
+
+```sh
+# enable lingering and the timers
+$ sudo loginctl enable-linger $USER
+$ ./install.sh
+$ systemctl enable --now --user headless-shell.timer
+
+# run a build by hand, see all options with --help
+$ ./build.sh --help
+$ ./build.sh --channel stable --target amd64
+
+# follow a build
+$ journalctl --user -fu headless-shell.service
+```
+
+Pushing requires a registry token in `~/.config/headless-shell/token`.
+
 [headless-shell]: https://github.com/chromedp/docker-headless-shell
 [docker-headless-shell]: https://hub.docker.com/r/chromedp/headless-shell/tags
 [devtools-protocol]: https://chromedevtools.github.io/devtools-protocol/
