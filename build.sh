@@ -121,8 +121,18 @@ for CHANNEL in $CHANNELS_ORDER; do
   echo "ENDED BUILD FOR $CHANNEL $VERSION ($(date))"
 done
 
-# build images
+# push stable last, so that its tags (including latest) are the most recently
+# pushed, and are listed first on the registry
+IMAGE_ORDER=()
 for CHANNEL in $CHANNELS_ORDER; do
+  [ "$CHANNEL" = stable ] || IMAGE_ORDER+=("$CHANNEL")
+done
+for CHANNEL in $CHANNELS_ORDER; do
+  [ "$CHANNEL" != stable ] || IMAGE_ORDER+=("$CHANNEL")
+done
+
+# build images
+for CHANNEL in "${IMAGE_ORDER[@]}"; do
   VERSION=${VERSIONS[$CHANNEL]}
 
   # a failed build for one channel must not block the others

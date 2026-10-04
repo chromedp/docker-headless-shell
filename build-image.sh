@@ -77,8 +77,18 @@ if [ "$PUSH" -eq 1 ]; then
   )
 fi
 
+# push latest last, so that it is the most recently pushed tag, and is listed
+# first on the registry
+ORDERED=("$VERSION")
+for TAG in "${TAGS[@]}"; do
+  [ "$TAG" = latest ] || ORDERED+=("$TAG")
+done
+for TAG in "${TAGS[@]}"; do
+  [ "$TAG" != latest ] || ORDERED+=("$TAG")
+done
+
 REPO=$(sed -e 's%^docker\.io/%%' <<< "$IMAGE")
-for TAG in "$VERSION" "${TAGS[@]}"; do
+for TAG in "${ORDERED[@]}"; do
   NAME=localhost/$(basename "$IMAGE"):$TAG
 
   # create manifest
