@@ -2,7 +2,9 @@
 
 set -ex
 
-exec socat TCP4-LISTEN:9222,fork TCP4:127.0.0.1:9223 &
+socat TCP6-LISTEN:9222,fork TCP4:127.0.0.1:9223 &
+sleep 0.1
+socat TCP4-LISTEN:9222,fork TCP4:127.0.0.1:9223 &
 
 exec /headless-shell/headless-shell \
   --no-sandbox \
