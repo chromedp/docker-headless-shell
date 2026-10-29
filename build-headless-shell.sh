@@ -105,13 +105,33 @@ useragent_files() {
     |uniq
 }
 
+# check out a ref of the chromium tree. gclient sync stages the dependencies
+# that it checks out as gitlinks, and leaves them staged when the tree moves to
+# a version that does not have them. A dependency can also change from a
+# gitlink in one version to a plain directory in another. Either one makes the
+# checkout of a different version fail, so unstage the leftovers and remove the
+# nested checkouts that the ref tracks as plain directories
+checkout_ref() {
+  local ref=$1
+  git -C "$CHROMESRC" reset -q
+  git -C "$CHROMESRC" ls-files -s \
+    |awk '$1 == "160000" {print $4}' \
+    |xargs -r git -C "$CHROMESRC" ls-tree "$ref" -- \
+    |awk '$2 == "tree" {print substr($0, index($0, "\t") + 1)}' \
+    |while IFS= read -r path; do
+      echo "REMOVING $path: GITLINK IS A DIRECTORY IN $ref"
+      rm -rf "${CHROMESRC:?}/$path"
+    done
+  git -C "$CHROMESRC" checkout "$ref"
+}
+
 # update chromium source tree
 if [ "$UPDATE" -eq "1" ]; then
   echo -e "\n\nREBASING ($(date))"
   USERAGENT_FILES=$(useragent_files)
   (set -x;
     git -C "$CHROMESRC" checkout $USERAGENT_FILES
-    git -C "$CHROMESRC" checkout main
+    checkout_ref main
     git -C "$CHROMESRC" rebase-update
   )
   date +%s > "$OUT/last"
@@ -130,7 +150,7 @@ if [ "$SYNC" -eq "1" ]; then
   USERAGENT_FILES=$(useragent_files)
   (set -x;
     git -C "$CHROMESRC" checkout $USERAGENT_FILES
-    git -C "$CHROMESRC" checkout "$VERSION"
+    checkout_ref "$VERSION"
   )
   pushd "$CHROMESRC" &> /dev/null
   (set -x;
